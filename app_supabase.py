@@ -1084,7 +1084,7 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
         AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '6 months'  THEN m.PrixAchatMoteur END) AS prix_moy_6m,
         AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '12 months' THEN m.PrixAchatMoteur END) AS prix_moy_12m
       FROM tbl_MOTEURS m
-      JOIN tbl_RECEPTIONS r ON r.[N_réception] = m.NumRéception
+      JOIN tbl_RECEPTIONS r ON r."n_reception" = m.num_reception
       WHERE m.PrixAchatMoteur IS NOT NULL
         AND r.DateAchat IS NOT NULL
       GROUP BY UPPER(m.CodeMoteur)
@@ -1248,7 +1248,7 @@ def get_prix_achat_par_mois(n_months: int) -> pd.DataFrame:
       to_char(r."DateAchat", 'YYYY-MM') AS mois,
       AVG(m."PrixAchatMoteur") AS prix_achat_moy
     FROM tbl_MOTEURS m
-    JOIN tbl_RECEPTIONS r ON r."N_réception" = m."NumRéception"
+    JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
     WHERE r."DateAchat" >= NOW() - (:months || ' months')::interval
       AND m."PrixAchatMoteur" IS NOT NULL
       AND m."PrixAchatMoteur" > 0
@@ -1281,7 +1281,7 @@ def get_prix_achat_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
       to_char(r."DateAchat", 'YYYY-MM') AS mois,
       AVG(m."PrixAchatMoteur") AS prix_achat_moy
     FROM tbl_MOTEURS m
-    JOIN tbl_RECEPTIONS r ON r."N_réception" = m."NumRéception"
+    JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
     WHERE r."DateAchat" >= NOW() - (:months || ' months')::interval
       AND UPPER(m."code_moteur") = :code
       AND m."PrixAchatMoteur" IS NOT NULL
@@ -1327,7 +1327,7 @@ def get_price_movers(
             r."DateAchat" AS dt,
             m."PrixAchatMoteur" AS prix
           FROM tbl_MOTEURS m
-          JOIN tbl_RECEPTIONS r ON r."N_réception" = m."NumRéception"
+          JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
           WHERE r."DateAchat" >= NOW() - INTERVAL '{lb} months'
             AND m."PrixAchatMoteur" IS NOT NULL
             AND m."PrixAchatMoteur" > 0
