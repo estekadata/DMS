@@ -1100,7 +1100,7 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
         COUNT(*) AS nb_stock_dispo
       FROM v_moteurs_dispo
       WHERE est_disponible = 1
-        AND (archiver IS NULL OR archiver = 0)
+        AND (archiver IS NULL OR archiver = True)
       GROUP BY UPPER(code_moteur)
     )
     SELECT
@@ -1152,7 +1152,7 @@ def get_stock_dispo_par_code() -> pd.DataFrame:
       COUNT(*) AS nb_stock_dispo
     FROM v_moteurs_dispo
     WHERE est_disponible = 1
-      AND (archiver IS NULL OR archiver = 0)
+      AND (archiver IS NULL OR archiver = True)
       AND code_moteurIS NOT NULL
       AND TRIM(code_moteur) <> ''
     GROUP BY UPPER(code_moteur)
@@ -1168,7 +1168,7 @@ def get_stock_dispo_breakdown() -> pd.DataFrame:
         SELECT marque, energie, COUNT(*) as n
         FROM v_moteurs_dispo
         WHERE est_disponible = 1
-          AND (archiver IS NULL OR archiver = 0)
+          AND (archiver IS NULL OR archiver = True)
         GROUP BY marque, energie
         """
     )
