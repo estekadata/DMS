@@ -1080,13 +1080,13 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     achats AS (
       SELECT
         UPPER(m.code_moteur) AS code_moteur,
-        AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '3 months'  THEN m.PrixAchatMoteur END) AS prix_moy_3m,
-        AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '6 months'  THEN m.PrixAchatMoteur END) AS prix_moy_6m,
-        AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '12 months' THEN m.PrixAchatMoteur END) AS prix_moy_12m
+        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months'  THEN m.PrixAchatMoteur END) AS prix_moy_3m,
+        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '6 months'  THEN m.PrixAchatMoteur END) AS prix_moy_6m,
+        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '12 months' THEN m.PrixAchatMoteur END) AS prix_moy_12m
       FROM tbl_MOTEURS m
       JOIN tbl_RECEPTIONS r ON r."n_reception" = m.num_reception
       WHERE m.PrixAchatMoteur IS NOT NULL
-        AND r.DateAchat IS NOT NULL
+        AND r.date_achat IS NOT NULL
       GROUP BY UPPER(m.code_moteur)
     ),
     stock_dispo AS (
@@ -1245,11 +1245,11 @@ def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
 def get_prix_achat_par_mois(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
-      to_char(r."DateAchat", 'YYYY-MM') AS mois,
+      to_char(r."date_achat", 'YYYY-MM') AS mois,
       AVG(m."PrixAchatMoteur") AS prix_achat_moy
     FROM tbl_MOTEURS m
     JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
-    WHERE r."DateAchat" >= NOW() - (:months || ' months')::interval
+    WHERE r."date_achat" >= NOW() - (:months || ' months')::interval
       AND m."PrixAchatMoteur" IS NOT NULL
       AND m."PrixAchatMoteur" > 0
     GROUP BY mois
@@ -1278,11 +1278,11 @@ def get_prix_vente_par_mois(n_months: int) -> pd.DataFrame:
 def get_prix_achat_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     q = """
     SELECT
-      to_char(r."DateAchat", 'YYYY-MM') AS mois,
+      to_char(r."date_achat", 'YYYY-MM') AS mois,
       AVG(m."PrixAchatMoteur") AS prix_achat_moy
     FROM tbl_MOTEURS m
     JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
-    WHERE r."DateAchat" >= NOW() - (:months || ' months')::interval
+    WHERE r."date_achat" >= NOW() - (:months || ' months')::interval
       AND UPPER(m."code_moteur") = :code
       AND m."PrixAchatMoteur" IS NOT NULL
       AND m."PrixAchatMoteur" > 0
@@ -1324,11 +1324,11 @@ def get_price_movers(
         WITH base AS (
           SELECT
             UPPER(m."code_moteur") AS code_moteur,
-            r."DateAchat" AS dt,
+            r."date_achat" AS dt,
             m."PrixAchatMoteur" AS prix
           FROM tbl_MOTEURS m
           JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
-          WHERE r."DateAchat" >= NOW() - INTERVAL '{lb} months'
+          WHERE r."date_achat" >= NOW() - INTERVAL '{lb} months'
             AND m."PrixAchatMoteur" IS NOT NULL
             AND m."PrixAchatMoteur" > 0
         ),
