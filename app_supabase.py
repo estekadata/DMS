@@ -1032,7 +1032,7 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
     LEFT JOIN v_moteurs_dispo vd
       ON vd."n_moteur" = m."n_moteur"
     WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
-    GROUP BY jour, mois, code_moteur, marque, energie
+    GROUP BY jour, mois, m.code_moteur, marque, energie
     """
     return sql_df(q, {"months": int(n_months)})
 
