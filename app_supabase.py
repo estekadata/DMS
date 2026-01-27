@@ -1323,7 +1323,7 @@ def get_price_movers(
         q = f"""
         WITH base AS (
           SELECT
-            UPPER(m."CodeMoteur") AS code_moteur,
+            UPPER(m."code_moteur") AS code_moteur,
             r."DateAchat" AS dt,
             m."PrixAchatMoteur" AS prix
           FROM tbl_MOTEURS m
@@ -1362,7 +1362,7 @@ def get_price_movers(
         q = f"""
         WITH base AS (
           SELECT
-            UPPER(m."CodeMoteur") AS code_moteur,
+            UPPER(m."code_moteur") AS code_moteur,
             em."date_validation" AS dt,
             em."PrixVenteMoteur" AS prix
           FROM tbl_EXPEDITIONS_moteurs em
