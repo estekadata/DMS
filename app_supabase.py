@@ -1070,16 +1070,16 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     q = """
     WITH ventes AS (
       SELECT
-        UPPER(m.CodeMoteur) AS code_moteur,
+        UPPER(m.code_moteur) AS code_moteur,
         COUNT(*) AS nb_vendus_3m
       FROM tbl_EXPEDITIONS_moteurs em
       JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
       WHERE em.date_validation >= NOW() - INTERVAL '3 months'
-      GROUP BY UPPER(m.CodeMoteur)
+      GROUP BY UPPER(m.code_moteur)
     ),
     achats AS (
       SELECT
-        UPPER(m.CodeMoteur) AS code_moteur,
+        UPPER(m.code_moteur) AS code_moteur,
         AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '3 months'  THEN m.PrixAchatMoteur END) AS prix_moy_3m,
         AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '6 months'  THEN m.PrixAchatMoteur END) AS prix_moy_6m,
         AVG(CASE WHEN r.DateAchat >= NOW() - INTERVAL '12 months' THEN m.PrixAchatMoteur END) AS prix_moy_12m
@@ -1087,11 +1087,11 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
       JOIN tbl_RECEPTIONS r ON r."n_reception" = m.num_reception
       WHERE m.PrixAchatMoteur IS NOT NULL
         AND r.DateAchat IS NOT NULL
-      GROUP BY UPPER(m.CodeMoteur)
+      GROUP BY UPPER(m.code_moteur)
     ),
     stock_dispo AS (
       SELECT
-        UPPER(CodeMoteur) AS code_moteur,
+        UPPER(code_moteur) AS code_moteur,
         MAX(marque) AS marque,
         MAX(energie) AS energie,
         MAX(type_nom) AS type_nom,
@@ -1101,7 +1101,7 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
       FROM v_moteurs_dispo
       WHERE est_disponible = 1
         AND (Archiver IS NULL OR Archiver = 0)
-      GROUP BY UPPER(CodeMoteur)
+      GROUP BY UPPER(code_moteur)
     )
     SELECT
       v.code_moteur,
@@ -1130,7 +1130,7 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
 def get_prix_vente_moy_code_3m() -> pd.DataFrame:
     q = """
     SELECT
-      UPPER(m.CodeMoteur) AS code_moteur,
+      UPPER(m.code_moteur) AS code_moteur,
       AVG(em.PrixVenteMoteur) AS prix_vente_moy_3m,
       COUNT(*) AS nb_ventes_3m
     FROM tbl_EXPEDITIONS_moteurs em
@@ -1139,8 +1139,8 @@ def get_prix_vente_moy_code_3m() -> pd.DataFrame:
       AND em.PrixVenteMoteur IS NOT NULL
       AND em.PrixVenteMoteur > 0
       AND m.code_moteurIS NOT NULL
-      AND TRIM(m.CodeMoteur) <> ''
-    GROUP BY UPPER(m.CodeMoteur)
+      AND TRIM(m.code_moteur) <> ''
+    GROUP BY UPPER(m.code_moteur)
     """
     return sql_df(q)
 
@@ -1148,14 +1148,14 @@ def get_prix_vente_moy_code_3m() -> pd.DataFrame:
 def get_stock_dispo_par_code() -> pd.DataFrame:
     q = """
     SELECT
-      UPPER(CodeMoteur) AS code_moteur,
+      UPPER(code_moteur) AS code_moteur,
       COUNT(*) AS nb_stock_dispo
     FROM v_moteurs_dispo
     WHERE est_disponible = 1
       AND (Archiver IS NULL OR Archiver = 0)
       AND code_moteurIS NOT NULL
-      AND TRIM(CodeMoteur) <> ''
-    GROUP BY UPPER(CodeMoteur)
+      AND TRIM(code_moteur) <> ''
+    GROUP BY UPPER(code_moteur)
     """
     return sql_df(q)
 
@@ -1403,7 +1403,7 @@ def get_price_movers(
 def get_code_info() -> pd.DataFrame:
     q = """
     SELECT
-      UPPER(CodeMoteur) AS code_moteur,
+      UPPER(code_moteur) AS code_moteur,
       MAX(marque) AS marque,
       MAX(energie) AS energie,
       MAX(type_nom) AS type_nom,
@@ -1411,8 +1411,8 @@ def get_code_info() -> pd.DataFrame:
       MAX(type_annee) AS type_annee
     FROM v_moteurs_dispo
     WHERE code_moteurIS NOT NULL
-      AND TRIM(CodeMoteur) <> ''
-    GROUP BY UPPER(CodeMoteur)
+      AND TRIM(code_moteur) <> ''
+    GROUP BY UPPER(code_moteur)
     """
     return sql_df(q)
 
@@ -2281,14 +2281,14 @@ def render_mise_a_jour_prix():
             st.error(f"Erreur lecture tbl MOTEURS : {e}")
             return
 
-        if not {"N_TypeMoteur", "CodeMoteur"}.issubset(mot.columns):
-            st.error("tbl MOTEURS doit contenir N_TypeMoteur et CodeMoteur")
+        if not {"N_TypeMoteur", "code_moteur"}.issubset(mot.columns):
+            st.error("tbl MOTEURS doit contenir N_TypeMoteur et code_moteur")
             return
 
-        mot2 = mot[["N_TypeMoteur", "CodeMoteur"]].copy()
+        mot2 = mot[["N_TypeMoteur", "code_moteur"]].copy()
         mot2["N_TypeMoteur"] = pd.to_numeric(mot2["N_TypeMoteur"], errors="coerce")
-        mot2["CodeMoteur"] = (
-            mot2["CodeMoteur"]
+        mot2["code_moteur"] = (
+            mot2["code_moteur"]
             .astype(str)
             .str.replace("\u00A0", " ", regex=False)
             .str.strip()
@@ -2298,13 +2298,13 @@ def render_mise_a_jour_prix():
         mot2["N_TypeMoteur"] = mot2["N_TypeMoteur"].astype(int)
 
         rep = (
-            mot2.groupby(["N_TypeMoteur", "CodeMoteur"])
+            mot2.groupby(["N_TypeMoteur", "code_moteur"])
             .size()
             .reset_index(name="n")
             .sort_values(["N_TypeMoteur", "n"], ascending=[True, False])
             .drop_duplicates("N_TypeMoteur")
         )
-        mapper = dict(zip(rep["N_TypeMoteur"].astype(str), rep["CodeMoteur"]))
+        mapper = dict(zip(rep["N_TypeMoteur"].astype(str), rep["code_moteur"]))
 
         # ✅ conversion SAFE : on extrait un nombre si présent
         def extract_int(s: str):
