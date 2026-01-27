@@ -1080,12 +1080,12 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     achats AS (
       SELECT
         UPPER(m.code_moteur) AS code_moteur,
-        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months'  THEN m.PrixAchatMoteur END) AS prix_moy_3m,
-        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '6 months'  THEN m.PrixAchatMoteur END) AS prix_moy_6m,
-        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '12 months' THEN m.PrixAchatMoteur END) AS prix_moy_12m
+        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months'  THEN m.prix_achat_moteur END) AS prix_moy_3m,
+        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '6 months'  THEN m.prix_achat_moteur END) AS prix_moy_6m,
+        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '12 months' THEN m.prix_achat_moteur END) AS prix_moy_12m
       FROM tbl_MOTEURS m
       JOIN tbl_RECEPTIONS r ON r."n_reception" = m.num_reception
-      WHERE m.PrixAchatMoteur IS NOT NULL
+      WHERE m.prix_achat_moteur IS NOT NULL
         AND r.date_achat IS NOT NULL
       GROUP BY UPPER(m.code_moteur)
     ),
@@ -1190,11 +1190,11 @@ def get_kpis_boites() -> dict:
 def get_prix_achat_dispo(limit: int = 200000) -> pd.DataFrame:
     return sql_df(
         f"""
-        SELECT PrixAchatMoteur AS prix
+        SELECT prix_achat_moteur AS prix
         FROM v_moteurs_dispo
         WHERE est_disponible = 1
-          AND PrixAchatMoteur IS NOT NULL
-          AND PrixAchatMoteur > 0
+          AND prix_achat_moteur IS NOT NULL
+          AND prix_achat_moteur > 0
         LIMIT {int(limit)}
         """
     )
@@ -1246,12 +1246,12 @@ def get_prix_achat_par_mois(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
       to_char(r."date_achat", 'YYYY-MM') AS mois,
-      AVG(m."PrixAchatMoteur") AS prix_achat_moy
+      AVG(m."prix_achat_moteur") AS prix_achat_moy
     FROM tbl_MOTEURS m
     JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
     WHERE r."date_achat" >= NOW() - (:months || ' months')::interval
-      AND m."PrixAchatMoteur" IS NOT NULL
-      AND m."PrixAchatMoteur" > 0
+      AND m."prix_achat_moteur" IS NOT NULL
+      AND m."prix_achat_moteur" > 0
     GROUP BY mois
     ORDER BY mois;
     """
@@ -1279,13 +1279,13 @@ def get_prix_achat_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     q = """
     SELECT
       to_char(r."date_achat", 'YYYY-MM') AS mois,
-      AVG(m."PrixAchatMoteur") AS prix_achat_moy
+      AVG(m."prix_achat_moteur") AS prix_achat_moy
     FROM tbl_MOTEURS m
     JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
     WHERE r."date_achat" >= NOW() - (:months || ' months')::interval
       AND UPPER(m."code_moteur") = :code
-      AND m."PrixAchatMoteur" IS NOT NULL
-      AND m."PrixAchatMoteur" > 0
+      AND m."prix_achat_moteur" IS NOT NULL
+      AND m."prix_achat_moteur" > 0
     GROUP BY mois
     ORDER BY mois;
     """
@@ -1325,12 +1325,12 @@ def get_price_movers(
           SELECT
             UPPER(m."code_moteur") AS code_moteur,
             r."date_achat" AS dt,
-            m."PrixAchatMoteur" AS prix
+            m."prix_achat_moteur" AS prix
           FROM tbl_MOTEURS m
           JOIN tbl_RECEPTIONS r ON r."n_reception" = m."num_reception"
           WHERE r."date_achat" >= NOW() - INTERVAL '{lb} months'
-            AND m."PrixAchatMoteur" IS NOT NULL
-            AND m."PrixAchatMoteur" > 0
+            AND m."prix_achat_moteur" IS NOT NULL
+            AND m."prix_achat_moteur" > 0
         ),
         agg AS (
           SELECT
