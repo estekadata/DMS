@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.venv
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data / DB
+db/
+*.sqlite
+*.db
+
+# Uploads
+uploads/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
