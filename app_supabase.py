@@ -1020,18 +1020,18 @@ def get_kpis_stock() -> dict:
 def get_ventes_recents(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
-      em."DateValidation"::date AS jour,
-      to_char(em."DateValidation", 'YYYY-MM') AS mois,
+      em."date_validation"::date AS jour,
+      to_char(em."date_validation", 'YYYY-MM') AS mois,
       UPPER(m."CodeMoteur") AS code_moteur,
       vd.marque AS marque,
       vd.energie AS energie,
       COUNT(*) AS nb_vendus
     FROM tbl_EXPEDITIONS_moteurs em
     JOIN tbl_MOTEURS m
-      ON m."N_moteur" = em."N_moteur"
+      ON m."n_moteur" = em."n_moteur"
     LEFT JOIN v_moteurs_dispo vd
-      ON vd."N_moteur" = m."N_moteur"
-    WHERE em."DateValidation" >= NOW() - (:months || ' months')::interval
+      ON vd."n_moteur" = m."n_moteur"
+    WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
     GROUP BY jour, mois, code_moteur, marque, energie
     """
     return sql_df(q, {"months": int(n_months)})
@@ -1041,12 +1041,12 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
 def get_ventes_recents_boites(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
-      eb."DateValidation"::date AS jour,
-      to_char(eb."DateValidation", 'YYYY-MM') AS mois,
+      eb."date_validation"::date AS jour,
+      to_char(eb."date_validation", 'YYYY-MM') AS mois,
       eb."N_BV"::text AS code_boite,
       COUNT(*) AS nb_vendus
     FROM "tbl_EXPEDITIONS_boîtes" eb
-    WHERE eb."DateValidation" >= NOW() - (:months || ' months')::interval
+    WHERE eb."date_validation" >= NOW() - (:months || ' months')::interval
     GROUP BY jour, mois, code_boite
     """
     return sql_df(q, {"months": int(n_months)})
@@ -1073,8 +1073,8 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
         UPPER(m.CodeMoteur) AS code_moteur,
         COUNT(*) AS nb_vendus_3m
       FROM tbl_EXPEDITIONS_moteurs em
-      JOIN tbl_MOTEURS m ON m.N_moteur = em.N_moteur
-      WHERE em.DateValidation >= NOW() - INTERVAL '3 months'
+      JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
+      WHERE em.date_validation >= NOW() - INTERVAL '3 months'
       GROUP BY UPPER(m.CodeMoteur)
     ),
     achats AS (
@@ -1134,11 +1134,11 @@ def get_prix_vente_moy_code_3m() -> pd.DataFrame:
       AVG(em.PrixVenteMoteur) AS prix_vente_moy_3m,
       COUNT(*) AS nb_ventes_3m
     FROM tbl_EXPEDITIONS_moteurs em
-    JOIN tbl_MOTEURS m ON m.N_moteur = em.N_moteur
-    WHERE em.DateValidation >= NOW() - INTERVAL '3 months'
+    JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
+    WHERE em.date_validation >= NOW() - INTERVAL '3 months'
       AND em.PrixVenteMoteur IS NOT NULL
       AND em.PrixVenteMoteur > 0
-      AND m.CodeMoteur IS NOT NULL
+      AND m.code_moteurIS NOT NULL
       AND TRIM(m.CodeMoteur) <> ''
     GROUP BY UPPER(m.CodeMoteur)
     """
@@ -1153,7 +1153,7 @@ def get_stock_dispo_par_code() -> pd.DataFrame:
     FROM v_moteurs_dispo
     WHERE est_disponible = 1
       AND (Archiver IS NULL OR Archiver = 0)
-      AND CodeMoteur IS NOT NULL
+      AND code_moteurIS NOT NULL
       AND TRIM(CodeMoteur) <> ''
     GROUP BY UPPER(CodeMoteur)
     """
@@ -1211,7 +1211,7 @@ def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
             CAST(eb.N_BV AS TEXT) AS code_boite,
             COUNT(*) AS nb_vendus_3m
         FROM "tbl_EXPEDITIONS_boîtes" eb
-        WHERE eb.DateValidation >= NOW() - INTERVAL '3 months'
+        WHERE eb.date_validation >= NOW() - INTERVAL '3 months'
         GROUP BY CAST(eb.N_BV AS TEXT)
     ),
     stock AS (
@@ -1262,10 +1262,10 @@ def get_prix_achat_par_mois(n_months: int) -> pd.DataFrame:
 def get_prix_vente_par_mois(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
-      to_char(em."DateValidation", 'YYYY-MM') AS mois,
+      to_char(em."date_validation", 'YYYY-MM') AS mois,
       AVG(em."PrixVenteMoteur") AS prix_vente_moy
     FROM tbl_EXPEDITIONS_moteurs em
-    WHERE em."DateValidation" >= NOW() - (:months || ' months')::interval
+    WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
       AND em."PrixVenteMoteur" IS NOT NULL
       AND em."PrixVenteMoteur" > 0
     GROUP BY mois
@@ -1296,11 +1296,11 @@ def get_prix_achat_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
 def get_prix_vente_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     q = """
     SELECT
-      to_char(em."DateValidation", 'YYYY-MM') AS mois,
+      to_char(em."date_validation", 'YYYY-MM') AS mois,
       AVG(em."PrixVenteMoteur") AS prix_vente_moy
     FROM tbl_EXPEDITIONS_moteurs em
-    JOIN tbl_MOTEURS m ON m."N_moteur" = em."N_moteur"
-    WHERE em."DateValidation" >= NOW() - (:months || ' months')::interval
+    JOIN tbl_MOTEURS m ON m."n_moteur" = em."n_moteur"
+    WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
       AND UPPER(m."CodeMoteur") = :code
       AND em."PrixVenteMoteur" IS NOT NULL
       AND em."PrixVenteMoteur" > 0
@@ -1363,11 +1363,11 @@ def get_price_movers(
         WITH base AS (
           SELECT
             UPPER(m."CodeMoteur") AS code_moteur,
-            em."DateValidation" AS dt,
+            em."date_validation" AS dt,
             em."PrixVenteMoteur" AS prix
           FROM tbl_EXPEDITIONS_moteurs em
-          JOIN tbl_MOTEURS m ON m."N_moteur" = em."N_moteur"
-          WHERE em."DateValidation" >= NOW() - INTERVAL '{lb} months'
+          JOIN tbl_MOTEURS m ON m."n_moteur" = em."n_moteur"
+          WHERE em."date_validation" >= NOW() - INTERVAL '{lb} months'
             AND em."PrixVenteMoteur" IS NOT NULL
             AND em."PrixVenteMoteur" > 0
         ),
@@ -1410,7 +1410,7 @@ def get_code_info() -> pd.DataFrame:
       MAX(type_modele) AS type_modele,
       MAX(type_annee) AS type_annee
     FROM v_moteurs_dispo
-    WHERE CodeMoteur IS NOT NULL
+    WHERE code_moteurIS NOT NULL
       AND TRIM(CodeMoteur) <> ''
     GROUP BY UPPER(CodeMoteur)
     """
