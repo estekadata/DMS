@@ -1059,10 +1059,10 @@ def ensure_stock_views():
     SELECT
       b.*,
       CASE
-        WHEN b.Stock = 1 AND (b.Vendu IS NULL OR b.Vendu = 0) THEN 1
+        WHEN b.stock = true AND (b.Vendu IS NULL OR b.vendu = false) THEN 1
         ELSE 0
       END AS est_disponible
-    FROM tbl_BOITES b;
+    FROM tbl_boites b;
     """)
 
 
@@ -1218,7 +1218,7 @@ def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
         SELECT
             CAST(N_BV AS TEXT) AS code_boite,
             COUNT(*) AS nb_stock_dispo
-        FROM tbl_BOITES
+        FROM tbl_boites
         WHERE Stock = 1
           AND (Vendu IS NULL OR Vendu = 0)
         GROUP BY CAST(N_BV AS TEXT)
