@@ -1138,7 +1138,7 @@ def get_prix_vente_moy_code_3m() -> pd.DataFrame:
     WHERE em.date_validation >= NOW() - INTERVAL '3 months'
       AND em.prix_vente_moteur IS NOT NULL
       AND em.prix_vente_moteur > 0
-      AND m.code_moteurIS NOT NULL
+      AND m.code_moteur IS NOT NULL
       AND TRIM(m.code_moteur) <> ''
     GROUP BY UPPER(m.code_moteur)
     """
@@ -1153,7 +1153,7 @@ def get_stock_dispo_par_code() -> pd.DataFrame:
     FROM v_moteurs_dispo
     WHERE est_disponible = 1
       AND (archiver IS NULL OR archiver = True)
-      AND code_moteurIS NOT NULL
+      AND code_moteur IS NOT NULL
       AND TRIM(code_moteur) <> ''
     GROUP BY UPPER(code_moteur)
     """
@@ -1410,7 +1410,7 @@ def get_code_info() -> pd.DataFrame:
       MAX(type_modele) AS type_modele,
       MAX(type_annee) AS type_annee
     FROM v_moteurs_dispo
-    WHERE code_moteurIS NOT NULL
+    WHERE code_moteur IS NOT NULL
       AND TRIM(code_moteur) <> ''
     GROUP BY UPPER(code_moteur)
     """
