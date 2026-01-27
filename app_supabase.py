@@ -1022,7 +1022,7 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
     SELECT
       em."date_validation"::date AS jour,
       to_char(em."date_validation", 'YYYY-MM') AS mois,
-      UPPER(m."CodeMoteur") AS code_moteur,
+      UPPER(m."code_moteur") AS code_moteur,
       vd.marque AS marque,
       vd.energie AS energie,
       COUNT(*) AS nb_vendus
@@ -1283,7 +1283,7 @@ def get_prix_achat_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     FROM tbl_MOTEURS m
     JOIN tbl_RECEPTIONS r ON r."N_réception" = m."NumRéception"
     WHERE r."DateAchat" >= NOW() - (:months || ' months')::interval
-      AND UPPER(m."CodeMoteur") = :code
+      AND UPPER(m."code_moteur") = :code
       AND m."PrixAchatMoteur" IS NOT NULL
       AND m."PrixAchatMoteur" > 0
     GROUP BY mois
@@ -1301,7 +1301,7 @@ def get_prix_vente_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     FROM tbl_EXPEDITIONS_moteurs em
     JOIN tbl_MOTEURS m ON m."n_moteur" = em."n_moteur"
     WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
-      AND UPPER(m."CodeMoteur") = :code
+      AND UPPER(m."code_moteur") = :code
       AND em."PrixVenteMoteur" IS NOT NULL
       AND em."PrixVenteMoteur" > 0
     GROUP BY mois
