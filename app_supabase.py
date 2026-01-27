@@ -1131,13 +1131,13 @@ def get_prix_vente_moy_code_3m() -> pd.DataFrame:
     q = """
     SELECT
       UPPER(m.code_moteur) AS code_moteur,
-      AVG(em.PrixVenteMoteur) AS prix_vente_moy_3m,
+      AVG(em.prix_vente_moteur) AS prix_vente_moy_3m,
       COUNT(*) AS nb_ventes_3m
     FROM tbl_EXPEDITIONS_moteurs em
     JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
     WHERE em.date_validation >= NOW() - INTERVAL '3 months'
-      AND em.PrixVenteMoteur IS NOT NULL
-      AND em.PrixVenteMoteur > 0
+      AND em.prix_vente_moteur IS NOT NULL
+      AND em.prix_vente_moteur > 0
       AND m.code_moteurIS NOT NULL
       AND TRIM(m.code_moteur) <> ''
     GROUP BY UPPER(m.code_moteur)
@@ -1263,11 +1263,11 @@ def get_prix_vente_par_mois(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
       to_char(em."date_validation", 'YYYY-MM') AS mois,
-      AVG(em."PrixVenteMoteur") AS prix_vente_moy
+      AVG(em."prix_vente_moteur") AS prix_vente_moy
     FROM tbl_EXPEDITIONS_moteurs em
     WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
-      AND em."PrixVenteMoteur" IS NOT NULL
-      AND em."PrixVenteMoteur" > 0
+      AND em."prix_vente_moteur" IS NOT NULL
+      AND em."prix_vente_moteur" > 0
     GROUP BY mois
     ORDER BY mois;
     """
@@ -1297,13 +1297,13 @@ def get_prix_vente_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     q = """
     SELECT
       to_char(em."date_validation", 'YYYY-MM') AS mois,
-      AVG(em."PrixVenteMoteur") AS prix_vente_moy
+      AVG(em."prix_vente_moteur") AS prix_vente_moy
     FROM tbl_EXPEDITIONS_moteurs em
     JOIN tbl_MOTEURS m ON m."n_moteur" = em."n_moteur"
     WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
       AND UPPER(m."code_moteur") = :code
-      AND em."PrixVenteMoteur" IS NOT NULL
-      AND em."PrixVenteMoteur" > 0
+      AND em."prix_vente_moteur" IS NOT NULL
+      AND em."prix_vente_moteur" > 0
     GROUP BY mois
     ORDER BY mois;
     """
@@ -1364,12 +1364,12 @@ def get_price_movers(
           SELECT
             UPPER(m."code_moteur") AS code_moteur,
             em."date_validation" AS dt,
-            em."PrixVenteMoteur" AS prix
+            em."prix_vente_moteur" AS prix
           FROM tbl_EXPEDITIONS_moteurs em
           JOIN tbl_MOTEURS m ON m."n_moteur" = em."n_moteur"
           WHERE em."date_validation" >= NOW() - INTERVAL '{lb} months'
-            AND em."PrixVenteMoteur" IS NOT NULL
-            AND em."PrixVenteMoteur" > 0
+            AND em."prix_vente_moteur" IS NOT NULL
+            AND em."prix_vente_moteur" > 0
         ),
         agg AS (
           SELECT
