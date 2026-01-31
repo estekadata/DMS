@@ -4,28 +4,25 @@ import hmac
 import textwrap
 from pathlib import Path
 from datetime import datetime
-from io import BytesIO
 
 from sqlalchemy import create_engine, text as sqltext
 from sqlalchemy.engine import Engine
 
-
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components  # ✅ AJOUT (localStorage)
+import streamlit.components.v1 as components
 import plotly.express as px
 import plotly.graph_objects as go
-import textwrap
+
 
 def md_html(html: str) -> None:
-    # Dedent + strip + on supprime l'indentation résiduelle ligne par ligne
     s = textwrap.dedent(html).strip()
     s = "\n".join(line.lstrip() for line in s.splitlines())
     st.markdown(s, unsafe_allow_html=True)
 
 
 # =========================
-# AJOUT: localStorage helpers (UX casse)
+# localStorage helpers
 # =========================
 def localstorage_get(key: str, default: str = "") -> str:
     components.html(
@@ -40,6 +37,7 @@ def localstorage_get(key: str, default: str = "") -> str:
         height=0,
     )
     return st.query_params.get("ls_" + key, default)
+
 
 def localstorage_set(key: str, value: str) -> None:
     components.html(
@@ -70,35 +68,20 @@ COLORS = {
 }
 
 
-
-
-
 # =========================
-# CSS PERSONNALISÉ MODERNE
+# CSS
 # =========================
 def inject_custom_css():
     md_html(
         """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
 
-        * {
-            font-family: 'Inter', sans-serif;
-        }
-
-        /* Fond avec effet de particules */
-        .main {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            position: relative;
-        }
-
+        .main { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative; }
         .main::before {
             content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background-image:
                 radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
                 radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
@@ -106,39 +89,24 @@ def inject_custom_css():
             pointer-events: none;
         }
 
-        .block-container {
-            padding: 2rem 3rem !important;
-            max-width: 1400px;
-            position: relative;
-            z-index: 1;
-        }
+        .block-container { padding: 2rem 3rem !important; max-width: 1400px; position: relative; z-index: 1; }
 
-        h1, h2, h3 {
-            color: #1f2937;
-            font-weight: 700;
-        }
+        h1, h2, h3 { color: #1f2937; font-weight: 700; }
 
-        /* Cards avec effet glassmorphism */
         .metric-card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 16px;
             padding: 1.5rem;
-            box-shadow:
-                0 8px 32px 0 rgba(31, 38, 135, 0.1),
-                0 0 0 1px rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.18);
             border: 1px solid rgba(255, 255, 255, 0.3);
             transition: all 0.3s ease;
         }
-
         .metric-card:hover {
             transform: translateY(-4px);
-            box-shadow:
-                0 12px 40px 0 rgba(31, 38, 135, 0.15),
-                0 0 0 1px rgba(255, 255, 255, 0.25);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.25);
         }
 
-        /* Boutons modernes avec effet de brillance */
         .stButton > button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -151,32 +119,18 @@ def inject_custom_css():
             position: relative;
             overflow: hidden;
         }
-
         .stButton > button::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
             transition: left 0.5s ease;
         }
+        .stButton > button:hover::before { left: 100%; }
+        .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4); }
+        .stButton > button:active { transform: translateY(0px); }
 
-        .stButton > button:hover::before {
-            left: 100%;
-        }
-
-        .stButton > button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .stButton > button:active {
-            transform: translateY(0px);
-        }
-
-        /* Inputs avec animation */
         .stTextInput > div > div > input,
         .stNumberInput > div > div > input,
         .stSelectbox > div > div {
@@ -186,19 +140,14 @@ def inject_custom_css():
             padding: 0.75rem 1rem;
             font-size: 0.95rem;
         }
-
         .stTextInput > div > div > input:focus,
         .stNumberInput > div > div > input:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
             transform: translateY(-1px);
         }
+        .stTextInput > div > div > input::placeholder { color: #9ca3af; }
 
-        .stTextInput > div > div > input::placeholder {
-            color: #9ca3af;
-        }
-
-        /* Metrics avec animation */
         [data-testid="stMetricValue"] {
             font-size: 2rem;
             font-weight: 700;
@@ -207,17 +156,12 @@ def inject_custom_css():
             -webkit-text-fill-color: transparent;
         }
 
-        /* Sidebar moderne */
         [data-testid="stSidebar"] {
             background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
             box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
         }
+        [data-testid="stSidebar"] * { color: white !important; }
 
-        [data-testid="stSidebar"] * {
-            color: white !important;
-        }
-
-        /* Messages avec icônes */
         .stSuccess {
             background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
             border-left: 4px solid #10b981;
@@ -225,7 +169,6 @@ def inject_custom_css():
             padding: 1rem;
             animation: slideIn 0.3s ease-out;
         }
-
         .stError {
             background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
             border-left: 4px solid #ef4444;
@@ -233,14 +176,12 @@ def inject_custom_css():
             padding: 1rem;
             animation: slideIn 0.3s ease-out;
         }
-
         .stWarning {
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
             border-left: 4px solid #f59e0b;
             border-radius: 12px;
             padding: 1rem;
         }
-
         .stInfo {
             background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
             border-left: 4px solid #3b82f6;
@@ -249,17 +190,10 @@ def inject_custom_css():
         }
 
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
-        /* Tabs avec effet moderne */
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px;
             background: rgba(255, 255, 255, 0.95);
@@ -268,40 +202,25 @@ def inject_custom_css():
             padding: 8px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
-
         .stTabs [data-baseweb="tab"] {
             border-radius: 8px;
             padding: 12px 24px;
             font-weight: 600;
             transition: all 0.3s ease;
         }
+        .stTabs [data-baseweb="tab"]:hover { background-color: rgba(102, 126, 234, 0.1); }
 
-        .stTabs [data-baseweb="tab"]:hover {
-            background-color: rgba(102, 126, 234, 0.1);
-        }
-
-        /* Scrollbar personnalisée */
-        ::-webkit-scrollbar {
-            width: 12px;
-            height: 12px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(241, 241, 241, 0.5);
-            border-radius: 10px;
-        }
-
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
+        ::-webkit-scrollbar-track { background: rgba(241, 241, 241, 0.5); border-radius: 10px; }
         ::-webkit-scrollbar-thumb {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 10px;
             border: 2px solid rgba(255, 255, 255, 0.3);
         }
-
         ::-webkit-scrollbar-thumb:hover {
             background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
         }
 
-        /* Cacher éléments Streamlit */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
@@ -325,23 +244,10 @@ def check_password() -> bool:
     md_html(
         """
         <style>
-        /* Cache sidebar et header sur login */
-        section[data-testid="stSidebar"] {
-            display: none;
-        }
+        section[data-testid="stSidebar"] { display: none; }
+        .stApp { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; }
+        .main .block-container { max-width: 480px !important; padding-top: 3rem !important; }
 
-        /* Fond coloré */
-        .stApp {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        }
-
-        /* Container centré */
-        .main .block-container {
-            max-width: 480px !important;
-            padding-top: 3rem !important;
-        }
-
-        /* Style des inputs */
         div[data-testid="stTextInput"] > div > div > input {
             background-color: #f9fafb !important;
             border: 2px solid #e5e7eb !important;
@@ -349,33 +255,26 @@ def check_password() -> bool:
             padding: 12px 16px !important;
             font-size: 15px !important;
         }
-
         div[data-testid="stTextInput"] > div > div > input:focus {
             border-color: #667eea !important;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
         }
-
-        /* Labels des inputs */
         div[data-testid="stTextInput"] label {
             color: #374151 !important;
             font-weight: 600 !important;
             font-size: 14px !important;
             margin-bottom: 8px !important;
         }
-
-        /* Boutons */
         .stButton button {
             border-radius: 10px !important;
             padding: 10px 24px !important;
             font-weight: 600 !important;
             font-size: 15px !important;
         }
-
         .stButton button[kind="primary"] {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
             border: none !important;
         }
-
         .stButton button[kind="secondary"] {
             background: white !important;
             color: #374151 !important;
@@ -386,7 +285,6 @@ def check_password() -> bool:
     )
 
     inject_custom_css()
-
     md_html("<div style='height: 20px;'></div>")
 
     md_html(
@@ -431,10 +329,6 @@ def check_password() -> bool:
 
     md_html("<div style='height: 24px;'></div>")
 
-    # =========================
-    # MODIF DEMANDEE #1 : accès casse depuis la page de connexion
-    # (sans changer le design global, juste 2 boutons)
-    # =========================
     col1, col2 = st.columns([1, 1])
     with col1:
         login = st.button("🔐 Se connecter (Admin)", type="primary", use_container_width=True)
@@ -460,9 +354,6 @@ def check_password() -> bool:
         st.session_state["mode"] = "casse"
         st.session_state["page"] = "casse"
         st.rerun()
-    # =========================
-    # FIN MODIF #1
-    # =========================
 
     md_html("</div>")
 
@@ -500,7 +391,7 @@ def logout_button():
 
 
 # =========================
-# DB helpers (Supabase / PostgreSQL)
+# DB helpers
 # =========================
 @st.cache_resource(show_spinner=False)
 def get_engine() -> Engine:
@@ -508,22 +399,23 @@ def get_engine() -> Engine:
     if not url:
         st.error("SUPABASE_DB_URL (ou DATABASE_URL / POSTGRES_URL) manquant dans .streamlit/secrets.toml")
         st.stop()
-    # Supabase fournit un URL du type: postgresql://user:pass@host:5432/postgres
     return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10)
 
-@st.cache_data(show_spinner=False, ttl=300)  # ✅ perf: TTL 5 min
+
+@st.cache_data(show_spinner=False, ttl=300)
 def sql_df(query: str, params: dict | None = None) -> pd.DataFrame:
     eng = get_engine()
     with eng.connect() as conn:
         return pd.read_sql_query(sqltext(query), conn, params=params or {})
+
 
 def exec_sql(query: str, params: dict | None = None) -> None:
     eng = get_engine()
     with eng.begin() as conn:
         conn.execute(sqltext(query), params or {})
 
+
 def assert_db_ready():
-    # On vérifie que la vue attendue existe bien
     q = """
     SELECT 1
     FROM information_schema.views
@@ -570,7 +462,6 @@ def add_column_if_missing(table: str, col_def: str):
 # Tables casses
 # =========================
 def ensure_breaker_tables():
-    # Tables "casses" (PostgreSQL)
     exec_sql(
         """
         CREATE TABLE IF NOT EXISTS breakers (
@@ -623,7 +514,6 @@ def ensure_breaker_tables():
         """
     )
 
-    # (Optionnel) Ajout de colonnes si tu as déjà des tables en prod
     for col in [
         "immatriculation TEXT",
         "vin TEXT",
@@ -731,6 +621,7 @@ def insert_free_offer(
     )
 
 
+@st.cache_data(show_spinner=False, ttl=120)
 def get_recent_click_offers(limit: int = 50) -> pd.DataFrame:
     q = """
     SELECT
@@ -758,6 +649,7 @@ def get_recent_click_offers(limit: int = 50) -> pd.DataFrame:
     return sql_df(q, {"lim": int(limit)})
 
 
+@st.cache_data(show_spinner=False, ttl=120)
 def get_recent_free_offers(limit: int = 50) -> pd.DataFrame:
     q = """
     SELECT
@@ -779,9 +671,7 @@ def get_recent_free_offers(limit: int = 50) -> pd.DataFrame:
     return sql_df(q, {"lim": int(limit)})
 
 
-# =========================
-# AJOUT: stats du jour (feedback casse)
-# =========================
+@st.cache_data(show_spinner=False, ttl=60)
 def get_breaker_stats_today(breaker_id: int) -> dict:
     q = """
     SELECT
@@ -795,22 +685,20 @@ def get_breaker_stats_today(breaker_id: int) -> dict:
 
 
 # =========================
-# SYSTÈME DE MATCHING INTELLIGENT
+# Matching
 # =========================
 def normalize_text(text: str) -> str:
-    """Normalise le texte pour le matching"""
     if not text:
         return ""
     text = str(text).upper().strip()
     text = text.replace("-", " ").replace("_", " ").replace(".", " ")
     import re
-
     text = re.sub(r"\s+", " ", text)
     return text
 
 
+@st.cache_data(show_spinner=False, ttl=24 * 3600)
 def get_motor_synonyms() -> dict:
-    """Dictionnaire de synonymes pour le matching intelligent"""
     return {
         "RENAULT": ["REN", "RENO", "R"],
         "PEUGEOT": ["PEU", "PSA", "P"],
@@ -836,10 +724,8 @@ def get_motor_synonyms() -> dict:
 
 
 def create_search_variants(text: str) -> list:
-    """Crée des variantes de recherche pour améliorer le matching"""
     if not text:
         return []
-
     synonyms = get_motor_synonyms()
     variants = [normalize_text(text)]
     norm = normalize_text(text)
@@ -856,7 +742,6 @@ def create_search_variants(text: str) -> list:
 
 
 def smart_match_motor(search_text: str, besoins: pd.DataFrame) -> pd.DataFrame:
-    """Matching intelligent entre ce que dit la casse et les besoins"""
     if not search_text or besoins.empty:
         return besoins
 
@@ -911,9 +796,7 @@ def smart_match_motor(search_text: str, besoins: pd.DataFrame) -> pd.DataFrame:
 
 
 def suggest_motor_description(row: dict) -> str:
-    """Génère une description 'langage casse' pour aider au matching"""
     parts = []
-
     if row.get("marque"):
         parts.append(str(row["marque"]))
 
@@ -926,10 +809,8 @@ def suggest_motor_description(row: dict) -> str:
 
     if row.get("type_nom"):
         parts.append(str(row["type_nom"]))
-
     if row.get("type_modele"):
         parts.append(str(row["type_modele"]))
-
     if row.get("type_annee"):
         parts.append(str(row["type_annee"]))
 
@@ -963,47 +844,37 @@ def render_home():
         if st.button("📈", key="btn_ventes", use_container_width=True):
             set_page("ventes")
             st.rerun()
-        md_html(
-            "<div style='text-align: center; margin-top: 1rem;'><h3>Ventes</h3><p style='color: #6b7280;'>Analyse des ventes</p></div>"
-        )
+        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Ventes</h3><p style='color: #6b7280;'>Analyse des ventes</p></div>")
 
     with c2:
         if st.button("🎯", key="btn_besoins", use_container_width=True):
             set_page("besoins")
             st.rerun()
-        md_html(
-            "<div style='text-align: center; margin-top: 1rem;'><h3>Besoins</h3><p style='color: #6b7280;'>Besoins casses</p></div>"
-        )
+        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Besoins</h3><p style='color: #6b7280;'>Besoins casses</p></div>")
 
     with c3:
         if st.button("📊", key="btn_analyse", use_container_width=True):
             set_page("analyse")
             st.rerun()
-        md_html(
-            "<div style='text-align: center; margin-top: 1rem;'><h3>Analyse</h3><p style='color: #6b7280;'>Statistiques</p></div>"
-        )
+        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Analyse</h3><p style='color: #6b7280;'>Statistiques</p></div>")
 
     with c4:
         if st.button("🛠️", key="btn_casse", use_container_width=True):
             set_page("casse")
             st.rerun()
-        md_html(
-            "<div style='text-align: center; margin-top: 1rem;'><h3>Accès Casse</h3><p style='color: #6b7280;'>Interface casses</p></div>"
-        )
+        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Accès Casse</h3><p style='color: #6b7280;'>Interface casses</p></div>")
 
     with c5:
         if st.button("💶", key="btn_prix", use_container_width=True):
             set_page("mise_a_jour_prix")
             st.rerun()
-        md_html(
-            "<div style='text-align: center; margin-top: 1rem;'><h3>Mise à jour des prix</h3><p style='color: #6b7280;'>Propositions achat</p></div>"
-        )
-
+        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Mise à jour des prix</h3><p style='color: #6b7280;'>Propositions achat</p></div>")
 
 
 # =========================
-# Queries
+# Queries (cache perf)
 # =========================
+@st.cache_data(show_spinner=False, ttl=120)
 def get_kpis_stock() -> dict:
     q = """
     SELECT
@@ -1016,7 +887,7 @@ def get_kpis_stock() -> dict:
     return {k: int(row[k]) for k in row.keys()}
 
 
-
+@st.cache_data(show_spinner=False, ttl=300)
 def get_ventes_recents(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
@@ -1037,7 +908,7 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
     return sql_df(q, {"months": int(n_months)})
 
 
-
+@st.cache_data(show_spinner=False, ttl=300)
 def get_ventes_recents_boites(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
@@ -1053,7 +924,6 @@ def get_ventes_recents_boites(n_months: int) -> pd.DataFrame:
 
 
 def ensure_stock_views():
-    # --- BOITES ---
     exec_sql("""
     CREATE OR REPLACE VIEW v_boites_dispo AS
     SELECT
@@ -1066,6 +936,7 @@ def ensure_stock_views():
     """)
 
 
+@st.cache_data(show_spinner=False, ttl=300)
 def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     q = """
     WITH ventes AS (
@@ -1127,6 +998,8 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
         df = df.sort_values(["score_urgence", "nb_vendus_3m"], ascending=False)
     return df
 
+
+@st.cache_data(show_spinner=False, ttl=300)
 def get_prix_vente_moy_code_3m() -> pd.DataFrame:
     q = """
     SELECT
@@ -1145,6 +1018,7 @@ def get_prix_vente_moy_code_3m() -> pd.DataFrame:
     return sql_df(q)
 
 
+@st.cache_data(show_spinner=False, ttl=300)
 def get_stock_dispo_par_code() -> pd.DataFrame:
     q = """
     SELECT
@@ -1160,8 +1034,7 @@ def get_stock_dispo_par_code() -> pd.DataFrame:
     return sql_df(q)
 
 
-
-
+@st.cache_data(show_spinner=False, ttl=300)
 def get_stock_dispo_breakdown() -> pd.DataFrame:
     return sql_df(
         """
@@ -1173,6 +1046,8 @@ def get_stock_dispo_breakdown() -> pd.DataFrame:
         """
     )
 
+
+@st.cache_data(show_spinner=False, ttl=120)
 def get_kpis_from_view(view_name: str) -> dict:
     q = f"""
     SELECT
@@ -1184,9 +1059,12 @@ def get_kpis_from_view(view_name: str) -> dict:
     row = sql_df(q).iloc[0].to_dict()
     return {k: int(row[k]) for k in row.keys()}
 
+
 def get_kpis_boites() -> dict:
     return get_kpis_from_view("v_boites_dispo")
 
+
+@st.cache_data(show_spinner=False, ttl=300)
 def get_prix_achat_dispo(limit: int = 200000) -> pd.DataFrame:
     return sql_df(
         f"""
@@ -1199,12 +1077,9 @@ def get_prix_achat_dispo(limit: int = 200000) -> pd.DataFrame:
         """
     )
 
-def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
-    """
-    Besoins boîtes = ventes récentes / stock disponible
-    Version simple et safe (pas d'achat, pas de prix inventés)
-    """
 
+@st.cache_data(show_spinner=False, ttl=300)
+def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
     q = """
     WITH ventes AS (
         SELECT
@@ -1232,7 +1107,6 @@ def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
     ORDER BY v.nb_vendus_3m DESC
     LIMIT :topn
     """
-
     df = sql_df(q, {"topn": int(top_n)})
 
     if not df.empty:
@@ -1242,6 +1116,7 @@ def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
     return df
 
 
+@st.cache_data(show_spinner=False, ttl=300)
 def get_prix_achat_par_mois(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
@@ -1258,7 +1133,7 @@ def get_prix_achat_par_mois(n_months: int) -> pd.DataFrame:
     return sql_df(q, {"months": int(n_months)})
 
 
-
+@st.cache_data(show_spinner=False, ttl=300)
 def get_prix_vente_par_mois(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
@@ -1274,7 +1149,7 @@ def get_prix_vente_par_mois(n_months: int) -> pd.DataFrame:
     return sql_df(q, {"months": int(n_months)})
 
 
-
+@st.cache_data(show_spinner=False, ttl=300)
 def get_prix_achat_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     q = """
     SELECT
@@ -1292,7 +1167,7 @@ def get_prix_achat_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     return sql_df(q, {"months": int(n_months), "code": code.upper()})
 
 
-
+@st.cache_data(show_spinner=False, ttl=300)
 def get_prix_vente_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     q = """
     SELECT
@@ -1310,9 +1185,8 @@ def get_prix_vente_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     return sql_df(q, {"months": int(n_months), "code": code.upper()})
 
 
-def get_price_movers(
-    kind: str, window_months: int = 3, lookback_months: int = 12, min_count: int = 5
-) -> pd.DataFrame:
+@st.cache_data(show_spinner=False, ttl=300)
+def get_price_movers(kind: str, window_months: int = 3, lookback_months: int = 12, min_count: int = 5) -> pd.DataFrame:
     if kind not in {"achat", "vente"}:
         raise ValueError("kind doit être 'achat' ou 'vente'")
 
@@ -1400,6 +1274,8 @@ def get_price_movers(
 
     return sql_df(q, {"minc": int(min_count)})
 
+
+@st.cache_data(show_spinner=False, ttl=600)
 def get_code_info() -> pd.DataFrame:
     q = """
     SELECT
@@ -1435,25 +1311,16 @@ def piece_selector(key: str = "piece_type") -> str:
 
 
 def render_ventes():
-    # Bouton retour accueil
     if st.button("⬅ Retour à l'accueil", use_container_width=False):
         set_page("home")
         st.rerun()
 
     st.markdown("## 📈 Analyse des ventes")
 
-    # 🔑 UNE SEULE source de vérité
     piece = piece_selector("ventes_piece")
 
-    n_months = st.slider(
-        "Période d'analyse (mois)",
-        min_value=1,
-        max_value=24,
-        value=3,
-        step=1,
-    )
+    n_months = st.slider("Période d'analyse (mois)", min_value=1, max_value=24, value=3, step=1)
 
-    # --- Récupération des données ---
     if piece == "moteurs":
         ventes = get_ventes_recents(n_months)
         code_col = "code_moteur"
@@ -1465,7 +1332,6 @@ def render_ventes():
         st.warning("Aucune vente sur la période.")
         return
 
-    # --- Ventes par mois ---
     ventes_mois = ventes.groupby("mois")["nb_vendus"].sum().reset_index()
     fig1 = px.line(
         ventes_mois,
@@ -1474,26 +1340,14 @@ def render_ventes():
         title=f"Ventes par mois (sur {n_months} mois)",
         labels={"mois": "Mois", "nb_vendus": "Nombre de ventes"},
     )
-    fig1.update_traces(
-        line_color=COLORS["primary"],
-        line_width=3,
-        marker=dict(size=8),
-    )
+    fig1.update_traces(line_color=COLORS["primary"], line_width=3, marker=dict(size=8))
     fig1.update_layout(template="plotly_white", hovermode="x unified")
     st.plotly_chart(fig1, use_container_width=True)
 
     col1, col2 = st.columns(2)
 
-    # --- Top codes ---
     with col1:
-        top_codes = (
-            ventes.groupby(code_col)["nb_vendus"]
-            .sum()
-            .sort_values(ascending=False)
-            .head(20)
-            .reset_index()
-        )
-
+        top_codes = ventes.groupby(code_col)["nb_vendus"].sum().sort_values(ascending=False).head(20).reset_index()
         fig2 = px.bar(
             top_codes,
             x=code_col,
@@ -1505,19 +1359,11 @@ def render_ventes():
         fig2.update_layout(template="plotly_white", showlegend=False)
         st.plotly_chart(fig2, use_container_width=True)
 
-    # --- Top marques (moteurs uniquement) ---
     with col2:
         if piece == "moteurs" and "marque" in ventes.columns:
             marques = ventes[ventes["marque"].notna() & (ventes["marque"] != "")]
             if not marques.empty:
-                top_marques = (
-                    marques.groupby("marque")["nb_vendus"]
-                    .sum()
-                    .sort_values(ascending=False)
-                    .head(15)
-                    .reset_index()
-                )
-
+                top_marques = marques.groupby("marque")["nb_vendus"].sum().sort_values(ascending=False).head(15).reset_index()
                 fig3 = px.bar(
                     top_marques,
                     x="marque",
@@ -1529,28 +1375,16 @@ def render_ventes():
                 fig3.update_layout(template="plotly_white", showlegend=False)
                 st.plotly_chart(fig3, use_container_width=True)
 
-    # --- Détail ---
     with st.expander("📋 Voir le détail des ventes"):
-        st.dataframe(
-            ventes.sort_values(["mois", "nb_vendus"], ascending=[False, False]),
-            use_container_width=True,
-        )
-
+        st.dataframe(ventes.sort_values(["mois", "nb_vendus"], ascending=[False, False]), use_container_width=True)
 
 
 def render_besoins():
-    # =========================
-    # MODIF DEMANDEE #2 : bouton retour accueil sur pages admin
-    # =========================
     if st.button("⬅ Retour à l'accueil", use_container_width=False):
         set_page("home")
         st.rerun()
-    # =========================
-    # FIN MODIF #2
-    # =========================
 
     st.markdown("## 🎯 Besoins actuels")
-
     piece = piece_selector("besoins_piece")
 
     topn = st.slider("Nombre de besoins affichés", min_value=10, max_value=200, value=50, step=10)
@@ -1566,7 +1400,6 @@ def render_besoins():
     st.info("💡 Besoins calculés sur les ventes des 3 derniers mois avec analyse du stock et prix moyens")
 
     top_urgent = besoins.head(20)
-    # colonne code selon le type sélectionné
     code_col = "code_moteur" if piece == "moteurs" else "code_boite"
     fig = px.bar(
         top_urgent,
@@ -1580,29 +1413,11 @@ def render_besoins():
     fig.update_layout(template="plotly_white", showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
-    base_cols = [
-    code_col,
-    "nb_vendus_3m",
-    "nb_stock_dispo",
-    "score_urgence",
-    ]
-
-    # Colonnes optionnelles (uniquement si elles existent)
-    optional_cols = [
-        "marque",
-        "energie",
-        "type_nom",
-        "type_modele",
-        "type_annee",
-    ]
-
+    base_cols = [code_col, "nb_vendus_3m", "nb_stock_dispo", "score_urgence"]
+    optional_cols = ["marque", "energie", "type_nom", "type_modele", "type_annee"]
     cols_to_show = [c for c in base_cols + optional_cols if c in besoins.columns]
 
-    st.dataframe(
-        besoins[cols_to_show],
-        use_container_width=True,
-    )
-
+    st.dataframe(besoins[cols_to_show], use_container_width=True)
 
 
 def render_casse():
@@ -1642,7 +1457,6 @@ def render_casse():
 
             md_html("<div style='margin-top: 1.5rem;'></div>")
 
-            # ✅ MODIF UX: pré-remplissage via localStorage
             saved_name = localstorage_get("breaker_name", "")
             saved_code = localstorage_get("breaker_code", "")
 
@@ -1657,7 +1471,6 @@ def render_casse():
                         st.session_state["breaker_ok"] = True
                         st.session_state["breaker_id"] = get_or_create_breaker(breaker_name.strip())
 
-                        # ✅ MODIF UX: mémoriser
                         localstorage_set("breaker_name", breaker_name.strip())
                         localstorage_set("breaker_code", (code or "").strip())
 
@@ -1690,7 +1503,6 @@ def render_casse():
         """
     )
 
-    # ✅ MODIF UX: feedback "aujourd'hui"
     stats = get_breaker_stats_today(breaker_id)
     c1, c2, c3 = st.columns(3)
     c1.metric("📬 Offres aujourd'hui", stats["total"])
@@ -1755,7 +1567,6 @@ def render_casse():
 
     st.markdown("---")
 
-    # ✅ MODIF UX: Pagination (20 max)
     PAGE_SIZE = 20
     if "casse_page" not in st.session_state:
         st.session_state["casse_page"] = 1
@@ -1781,7 +1592,6 @@ def render_casse():
 
     st.markdown("### 🎯 Moteurs recherchés (vue rapide)")
 
-    # ✅ MODIF UX: cartes 2 niveaux (compact + expander)
     for idx, row in besoins.iterrows():
         code = row.get("code_moteur", "")
         score = float(row.get("score_urgence", 0) or 0)
@@ -1941,37 +1751,27 @@ def render_casse():
                 st.success("✅ Moteur envoyé !")
                 st.balloons()
                 st.rerun()
+
+
 def normalize_code_moteur(x) -> str:
-    """Normalise code moteur pour matcher Excel <-> DB (169 == 169.0, trim, upper, etc.)"""
     if x is None:
         return ""
     s = str(x).strip().upper()
-
-    # cas Excel: 169.0 -> 169
     if s.endswith(".0"):
         s = s[:-2]
-
-    # cas float déguisé (si jamais)
     try:
         f = float(s.replace(",", "."))
         if f.is_integer():
             return str(int(f))
     except Exception:
         pass
-
     return s
 
 
 def render_analyse():
-    # =========================
-    # MODIF DEMANDEE #2 : bouton retour accueil sur pages admin
-    # =========================
     if st.button("⬅ Retour à l'accueil", use_container_width=False):
         set_page("home")
         st.rerun()
-    # =========================
-    # FIN MODIF #2
-    # =========================
 
     st.markdown("## 📊 Analyse avancée")
     piece = piece_selector("analyse_piece")
@@ -1983,6 +1783,7 @@ def render_analyse():
         if piece == "moteurs":
             dispo = get_stock_dispo_breakdown()
         else:
+            # NOTE: fonction non fournie dans ton extrait; je ne touche pas
             dispo = get_stock_dispo_breakdown_boites()
 
         col1, col2 = st.columns(2)
@@ -2021,34 +1822,13 @@ def render_analyse():
 
         if not df_global.empty:
             fig = go.Figure()
-            fig.add_trace(
-                go.Scatter(
-                    x=df_global["mois"],
-                    y=df_global["prix_achat_moy"],
-                    mode="lines+markers",
-                    name="Prix achat",
-                    line=dict(color=COLORS["primary"], width=3),
-                    marker=dict(size=8),
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=df_global["mois"],
-                    y=df_global["prix_vente_moy"],
-                    mode="lines+markers",
-                    name="Prix vente",
-                    line=dict(color=COLORS["success"], width=3),
-                    marker=dict(size=8),
-                )
-            )
+            fig.add_trace(go.Scatter(x=df_global["mois"], y=df_global["prix_achat_moy"], mode="lines+markers", name="Prix achat",
+                                     line=dict(color=COLORS["primary"], width=3), marker=dict(size=8)))
+            fig.add_trace(go.Scatter(x=df_global["mois"], y=df_global["prix_vente_moy"], mode="lines+markers", name="Prix vente",
+                                     line=dict(color=COLORS["success"], width=3), marker=dict(size=8)))
 
-            fig.update_layout(
-                title="Évolution mensuelle des prix moyens",
-                xaxis_title="Mois",
-                yaxis_title="Prix (€)",
-                template="plotly_white",
-                hovermode="x unified",
-            )
+            fig.update_layout(title="Évolution mensuelle des prix moyens", xaxis_title="Mois", yaxis_title="Prix (€)",
+                              template="plotly_white", hovermode="x unified")
             st.plotly_chart(fig, use_container_width=True)
 
             df_global["marge_moy_estimee"] = df_global["prix_vente_moy"] - df_global["prix_achat_moy"]
@@ -2075,18 +1855,8 @@ def render_analyse():
                 return df
             out = df.merge(code_info, on="code_moteur", how="left")
             cols = [
-                "code_moteur",
-                "marque",
-                "energie",
-                "type_nom",
-                "type_modele",
-                "type_annee",
-                "n_recent",
-                "n_prev",
-                "avg_prev",
-                "avg_recent",
-                "delta",
-                "pct",
+                "code_moteur", "marque", "energie", "type_nom", "type_modele", "type_annee",
+                "n_recent", "n_prev", "avg_prev", "avg_recent", "delta", "pct",
             ]
             cols = [c for c in cols if c in out.columns]
             return out[cols]
@@ -2130,38 +1900,17 @@ def render_analyse():
 
         if candidates:
             code = st.selectbox("Choisir un code moteur", candidates)
-
             achats_code = get_prix_achat_par_mois_code(n_months, code)
             ventes_code = get_prix_vente_par_mois_code(n_months, code)
             df_code = pd.merge(achats_code, ventes_code, on="mois", how="outer").sort_values("mois")
 
             if not df_code.empty:
                 fig = go.Figure()
-                fig.add_trace(
-                    go.Scatter(
-                        x=df_code["mois"],
-                        y=df_code["prix_achat_moy"],
-                        mode="lines+markers",
-                        name="Prix achat",
-                        line=dict(color=COLORS["primary"], width=3),
-                    )
-                )
-                fig.add_trace(
-                    go.Scatter(
-                        x=df_code["mois"],
-                        y=df_code["prix_vente_moy"],
-                        mode="lines+markers",
-                        name="Prix vente",
-                        line=dict(color=COLORS["success"], width=3),
-                    )
-                )
-
-                fig.update_layout(
-                    title=f"Évolution prix pour {code}",
-                    xaxis_title="Mois",
-                    yaxis_title="Prix (€)",
-                    template="plotly_white",
-                )
+                fig.add_trace(go.Scatter(x=df_code["mois"], y=df_code["prix_achat_moy"], mode="lines+markers", name="Prix achat",
+                                         line=dict(color=COLORS["primary"], width=3)))
+                fig.add_trace(go.Scatter(x=df_code["mois"], y=df_code["prix_vente_moy"], mode="lines+markers", name="Prix vente",
+                                         line=dict(color=COLORS["success"], width=3)))
+                fig.update_layout(title=f"Évolution prix pour {code}", xaxis_title="Mois", yaxis_title="Prix (€)", template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
 
                 df_code["marge_moy_estimee"] = df_code["prix_vente_moy"] - df_code["prix_achat_moy"]
@@ -2171,7 +1920,6 @@ def render_analyse():
         st.markdown("### 📥 Offres reçues des casses")
 
         col6, col7 = st.columns(2)
-
         with col6:
             st.markdown("#### Offres ciblées")
             df_off = get_recent_click_offers(limit=200)
@@ -2182,8 +1930,9 @@ def render_analyse():
             df_free = get_recent_free_offers(limit=200)
             st.dataframe(df_free, use_container_width=True, height=400)
 
+
 def render_mise_a_jour_prix():
-    import numpy as np  # import local = pas de bordel ailleurs
+    import numpy as np
     import re
 
     if st.button("⬅ Retour à l'accueil", use_container_width=False):
@@ -2262,11 +2011,10 @@ def render_mise_a_jour_prix():
     col_type = possible_cols[0]
     cat = cat[cat[col_type].notna()].copy()
 
-    # Nettoyage robuste (espaces chelous, etc.)
     cat["type_moteur_excel"] = (
         cat[col_type]
         .astype(str)
-        .str.replace("\u00A0", " ", regex=False)  # NBSP
+        .str.replace("\u00A0", " ", regex=False)
         .str.strip()
         .str.upper()
     )
@@ -2306,7 +2054,6 @@ def render_mise_a_jour_prix():
         )
         mapper = dict(zip(rep["N_TypeMoteur"].astype(str), rep["code_moteur"]))
 
-        # ✅ conversion SAFE : on extrait un nombre si présent
         def extract_int(s: str):
             m = re.search(r"\d+", s or "")
             return int(m.group(0)) if m else None
@@ -2331,12 +2078,7 @@ def render_mise_a_jour_prix():
     df["f_urgence"] = (df["score_urgence"] / 8.0).clip(0, 1)
     df["f_surstock"] = (df["nb_stock_dispo"] / (df["nb_vendus_3m"] + 1) / 5.0).clip(0, 1)
 
-    df["marge_effective"] = (
-        marge_cible
-        - bonus_urgence * df["f_urgence"]
-        + malus_surstock * df["f_surstock"]
-    ).clip(0.05, 0.9)
-
+    df["marge_effective"] = (marge_cible - bonus_urgence * df["f_urgence"] + malus_surstock * df["f_surstock"]).clip(0.05, 0.9)
     df["prix_achat_propose"] = (df["prix_vente_moy_3m"] * (1 - df["marge_effective"])).round(0)
 
     def decision(r):
@@ -2353,22 +2095,27 @@ def render_mise_a_jour_prix():
     df["reco"] = df.apply(decision, axis=1)
 
     st.dataframe(
-        df[
-            [col_type, "type_moteur_excel", "code_moteur_join", "mapping_status",
-             "nb_vendus_3m", "nb_stock_dispo", "score_urgence",
-             "prix_vente_moy_3m", "marge_effective", "prix_achat_propose", "reco"]
-        ],
+        df[[col_type, "type_moteur_excel", "code_moteur_join", "mapping_status",
+            "nb_vendus_3m", "nb_stock_dispo", "score_urgence",
+            "prix_vente_moy_3m", "marge_effective", "prix_achat_propose", "reco"]],
         use_container_width=True,
         height=520,
     )
 
     csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "⬇️ Télécharger CSV (propositions)",
-        data=csv,
-        file_name="propositions_prix_achat.csv",
-        mime="text/csv",
-    )
+    st.download_button("⬇️ Télécharger CSV (propositions)", data=csv, file_name="propositions_prix_achat.csv", mime="text/csv")
+
+
+# =========================
+# INIT DB (PERF) - run once
+# =========================
+@st.cache_resource(show_spinner=False)
+def init_db_once() -> bool:
+    # Tout ce qui était relancé à chaque rerun passe ici.
+    assert_db_ready()
+    ensure_stock_views()
+    ensure_breaker_tables()
+    return True
 
 
 # =========================
@@ -2376,30 +2123,20 @@ def render_mise_a_jour_prix():
 # =========================
 def main():
     st.set_page_config(page_title="Multirex Auto DMS", page_icon="🚗", layout="wide", initial_sidebar_state="expanded")
-
     inject_custom_css()
 
     if not check_password():
         st.stop()
 
-    assert_db_ready()
-    ensure_stock_views()  
-    ensure_breaker_tables()
+    # ✅ perf: init DB une seule fois
+    init_db_once()
 
-
-    # =========================
-    # MODIF DEMANDEE #1 : mode casse ne voit pas l'admin
-    # =========================
     if st.session_state.get("mode") == "casse":
         render_casse()
         return
-    # =========================
-    # FIN MODIF #1
-    # =========================
 
     with st.sidebar:
         md_html("<h2 style='text-align: center; margin-bottom: 2rem;'>🚗 Multirex Auto</h2>")
-
         st.divider()
         logout_button()
 
@@ -2432,7 +2169,6 @@ def main():
                 </div>
                 """
             )
-
         with col2:
             md_html(
                 f"""
@@ -2442,7 +2178,6 @@ def main():
                 </div>
                 """
             )
-
         with col3:
             md_html(
                 f"""
@@ -2467,7 +2202,6 @@ def main():
                 </div>
                 """
             )
-
         with colb2:
             md_html(
                 f"""
@@ -2477,7 +2211,6 @@ def main():
                 </div>
                 """
             )
-
         with colb3:
             md_html(
                 f"""
@@ -2489,8 +2222,6 @@ def main():
             )
 
         md_html("<br>")
-
-
 
     if page == "home":
         render_home()
