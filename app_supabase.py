@@ -891,19 +891,24 @@ def get_kpis_stock() -> dict:
 def get_ventes_recents(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
-      em."date_validation"::date AS jour,
-      to_char(em."date_validation", 'YYYY-MM') AS mois,
-      UPPER(m."code_moteur") AS code_moteur,
+      em.date_validation::date AS jour,
+      to_char(em.date_validation, 'YYYY-MM') AS mois,
+      vd.type_nom AS code_moteur,
       vd.marque AS marque,
       vd.energie AS energie,
+      tm.nom_type_moteur as type_moteur,
       COUNT(*) AS nb_vendus
-    FROM tbl_EXPEDITIONS_moteurs em
-    JOIN tbl_MOTEURS m
-      ON m."n_moteur" = em."n_moteur"
+    FROM tbl_expeditions_moteurs em
+    JOIN tbl_moteurs m
+      ON m.n_moteur = em.n_moteur
     LEFT JOIN v_moteurs_dispo vd
-      ON vd."n_moteur" = m."n_moteur"
-    WHERE em."date_validation" >= NOW() - (:months || ' months')::interval
-    GROUP BY jour, mois, m.code_moteur, marque, energie
+      ON vd.n_moteur = m.n_moteur
+    left join tbl_types_moteurs tm 
+      ON     m.n_type_moteur=tm.n_type_moteur 
+    WHERE em.date_validation >= NOW() - make_interval(months => :months)
+        AND vd.type_nom IS NOT NULL
+        AND TRIM(vd.type_nom) <> ''
+    GROUP BY jour, mois, vd.type_nom, vd.marque, vd.energie,type_moteur
     """
     return sql_df(q, {"months": int(n_months)})
 
