@@ -1352,18 +1352,25 @@ def render_ventes():
     col1, col2 = st.columns(2)
 
     with col1:
-        top_codes = ventes.groupby(code_col)["nb_vendus"].sum().sort_values(ascending=False).head(20).reset_index()
+        top_codes = (
+            ventes
+            .groupby("type_moteur")["nb_vendus"]
+            .sum()
+            .sort_values(ascending=False)
+            .head(20)
+            .reset_index()
+        )
+
         fig2 = px.bar(
             top_codes,
-            x=code_col,
+            x="type_moteur",
             y="nb_vendus",
-            title=f"Top 20 {'codes moteur' if piece == 'moteurs' else 'boîtes'} vendus",
-            labels={code_col: "Code", "nb_vendus": "Nombre de ventes"},
+            title="Top 20 types moteur vendus (3 caractères)",
+            labels={"type_moteur": "Type moteur", "nb_vendus": "Nombre de ventes"},
         )
         fig2.update_traces(marker_color=COLORS["secondary"])
         fig2.update_layout(template="plotly_white", showlegend=False)
         st.plotly_chart(fig2, use_container_width=True)
-
     with col2:
         if piece == "moteurs" and "marque" in ventes.columns:
             marques = ventes[ventes["marque"].notna() & (ventes["marque"] != "")]
