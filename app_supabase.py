@@ -1414,7 +1414,12 @@ def render_besoins():
 
     st.info("💡 Besoins calculés sur les ventes des 3 derniers mois avec analyse du stock et prix moyens")
 
-    top_urgent = besoins.head(20)
+    top_urgent = top_urgent = (
+    besoins.groupby("type_moteur", as_index=False)["score_urgence"]
+    .max()
+    .sort_values("score_urgence", ascending=False)
+    .head(20)
+    )
     code_col = "type_moteur" if piece == "moteurs" else "code_boite"
     fig = px.bar(
         top_urgent,
