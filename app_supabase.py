@@ -1414,19 +1414,27 @@ def render_besoins():
 
     st.info("💡 Besoins calculés sur les ventes des 3 derniers mois avec analyse du stock et prix moyens")
 
-    top_urgent = top_urgent = (
-    besoins.groupby("type_moteur", as_index=False)["score_urgence"]
-    .max()
-    .sort_values("score_urgence", ascending=False)
-    .head(20)
-    )
+        # combien de barres on veut afficher (piloté par le slider)
+    topk = min(int(topn), len(besoins))  # topn = ton slider "Nombre de besoins affichés"
+
+    # agrégation par type_moteur (ou autre clé via code_col)
     code_col = "type_moteur" if piece == "moteurs" else "code_boite"
+
+    top_urgent = (
+        besoins
+        .groupby(code_col, as_index=False)["score_urgence"]
+        .max()
+        .sort_values("score_urgence", ascending=False)
+        .head(topk)
+    )
+
     fig = px.bar(
         top_urgent,
         x=code_col,
         y="score_urgence",
-        title="Top 20 besoins les plus urgents",
-        labels={"code_moteur": "Code moteur", "score_urgence": "Score d'urgence"},
+        title=f"Top {topk} besoins les plus urgents",
+        labels={code_col: "Type moteur" if piece == "moteurs" else "Code boîte",
+                "score_urgence": "Score d'urgence"},
         color="score_urgence",
         color_continuous_scale=["#10b981", "#f59e0b", "#ef4444"],
     )
