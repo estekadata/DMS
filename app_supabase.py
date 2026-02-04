@@ -982,17 +982,18 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
       GROUP BY UPPER(code_moteur)
     )
     SELECT
-      v.code_moteur,
-      COALESCE(s.marque, '') AS marque,
-      COALESCE(s.energie, '') AS energie,
-      COALESCE(s.type_nom, '') AS type_nom,
-      COALESCE(s.type_modele, '') AS type_modele,
-      COALESCE(s.type_annee, '') AS type_annee,
-      v.nb_vendus_3m,
-      COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
-      ROUND(a.prix_moy_3m, 2)  AS prix_moy_achat_3m,
-      ROUND(a.prix_moy_6m, 2)  AS prix_moy_achat_6m,
-      ROUND(a.prix_moy_12m, 2) AS prix_moy_achat_12m
+        v.code_moteur,
+        v.type_moteur,
+        COALESCE(s.marque, '') AS marque,
+        COALESCE(s.energie, '') AS energie,
+        COALESCE(s.type_nom, '') AS type_nom,
+        COALESCE(s.type_modele, '') AS type_modele,
+        COALESCE(s.type_annee, '') AS type_annee,
+        v.nb_vendus_3m,
+        COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
+        ROUND(a.prix_moy_3m, 2)  AS prix_moy_achat_3m,
+        ROUND(a.prix_moy_6m, 2)  AS prix_moy_achat_6m,
+        ROUND(a.prix_moy_12m, 2) AS prix_moy_achat_12m
     FROM ventes v
     LEFT JOIN achats a ON a.code_moteur = v.code_moteur
     LEFT JOIN stock_dispo s ON s.code_moteur = v.code_moteur
