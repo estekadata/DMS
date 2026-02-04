@@ -908,7 +908,7 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
     WHERE em.date_validation >= NOW() - make_interval(months => :months)
         AND vd.type_nom IS NOT NULL
         AND TRIM(vd.type_nom) <> ''
-    GROUP BY jour, mois, vd.type_nom, vd.marque, vd.energie,type_moteur
+    GROUP BY jour, mois, vd.type_nom, vd.marque, vd.energie,LEFT(tm.nom_type_moteur, 3) 
     """
     return sql_df(q, {"months": int(n_months)})
 
