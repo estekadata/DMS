@@ -896,7 +896,7 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
       vd.type_nom AS code_moteur,
       vd.marque AS marque,
       vd.energie AS energie,
-      tm.nom_type_moteur as type_moteur,
+      LEFT(tm.nom_type_moteur, 3) as type_moteur,
       COUNT(*) AS nb_vendus
     FROM tbl_expeditions_moteurs em
     JOIN tbl_moteurs m
