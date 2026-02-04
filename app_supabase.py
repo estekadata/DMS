@@ -945,13 +945,15 @@ def ensure_stock_views():
 def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     q = """
     WITH ventes AS (
-      SELECT
+    SELECT
         UPPER(m.code_moteur) AS code_moteur,
+        LEFT(tm.nom_type_moteur, 3) AS type_moteur,
         COUNT(*) AS nb_vendus_3m
-      FROM tbl_EXPEDITIONS_moteurs em
-      JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
-      WHERE em.date_validation >= NOW() - INTERVAL '3 months'
-      GROUP BY UPPER(m.code_moteur)
+    FROM tbl_EXPEDITIONS_moteurs em
+    JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
+    LEFT JOIN tbl_types_moteurs tm ON m.n_type_moteur = tm.n_type_moteur
+    WHERE em.date_validation >= NOW() - INTERVAL '3 months'
+    GROUP BY UPPER(m.code_moteur), LEFT(tm.nom_type_moteur, 3)
     ),
     achats AS (
       SELECT
