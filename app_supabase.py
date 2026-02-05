@@ -475,14 +475,20 @@ def exec_sql_scalar(query: str, params: dict | None = None):
     À utiliser UNIQUEMENT pour INSERT/UPDATE/DELETE avec RETURNING.
     """
     eng = get_engine()
-    with eng.begin() as conn:
-        res = conn.execute(sqltext(query), params or {})
-        return res.scalar()
+    try:
+        with eng.begin() as conn:
+            res = conn.execute(sqltext(query), params or {})
+            row = res.fetchone()
+            return row[0] if row else None
+    except Exception as e:
+        st.exception(e)
+        raise
+
 
 def ensure_breaker_tables():
     exec_sql(
         """
-        CREATE TABLE IF NOT EXISTS breakers (
+        CREATE TABLE IF NOT EXISTS public.breakers (
           id BIGSERIAL PRIMARY KEY,
           name TEXT NOT NULL UNIQUE,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -492,9 +498,9 @@ def ensure_breaker_tables():
 
     exec_sql(
         """
-        CREATE TABLE IF NOT EXISTS breaker_click_offers (
+        CREATE TABLE IF NOT EXISTS public.breaker_click_offers (
           id BIGSERIAL PRIMARY KEY,
-          breaker_id BIGINT NOT NULL REFERENCES breakers(id) ON DELETE CASCADE,
+          breaker_id BIGINT NOT NULL REFERENCES public.breakers(id) ON DELETE CASCADE,
           code_moteur TEXT NOT NULL,
           marque TEXT,
           energie TEXT,
@@ -516,9 +522,9 @@ def ensure_breaker_tables():
 
     exec_sql(
         """
-        CREATE TABLE IF NOT EXISTS breaker_free_offers (
+        CREATE TABLE IF NOT EXISTS public.breaker_free_offers (
           id BIGSERIAL PRIMARY KEY,
-          breaker_id BIGINT NOT NULL REFERENCES breakers(id) ON DELETE CASCADE,
+          breaker_id BIGINT NOT NULL REFERENCES public.breakers(id) ON DELETE CASCADE,
           texte TEXT NOT NULL,
           prix_demande DOUBLE PRECISION,
           note TEXT,
@@ -549,7 +555,7 @@ def get_or_create_breaker(name: str) -> int:
         raise ValueError("Nom casse vide")
 
     q = """
-    INSERT INTO breakers(name)
+    INSERT INTO public.breakers(name)
     VALUES (:name)
     ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
     RETURNING id;
