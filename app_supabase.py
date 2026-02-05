@@ -554,13 +554,22 @@ def get_or_create_breaker(name: str) -> int:
     if not name:
         raise ValueError("Nom casse vide")
 
-    q = """
+    # First, try to find existing breaker
+    q_select = """
+    SELECT id FROM public.breakers WHERE name = :name LIMIT 1;
+    """
+    df = sql_df(q_select, {"name": name})
+    
+    if not df.empty:
+        return int(df.iloc[0]["id"])
+    
+    # If not found, insert new one
+    q_insert = """
     INSERT INTO public.breakers(name)
     VALUES (:name)
-    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
     RETURNING id;
     """
-    breaker_id = exec_sql_scalar(q, {"name": name})
+    breaker_id = exec_sql_scalar(q_insert, {"name": name})
     return int(breaker_id)
 
 
