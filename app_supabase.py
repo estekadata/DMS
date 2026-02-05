@@ -324,7 +324,7 @@ def check_password() -> bool:
         """
     )
 
-    user = st.text_input("Utilisateur", key="login_user", placeholder="Votre identifiant")
+    user = st.text_input("Utilisateur", key="login_user", placeholder="IDENTIFIANT")
     pwd = st.text_input("Mot de passe", type="password", key="login_pwd", placeholder="Votre mot de passe")
 
     md_html("<div style='height: 24px;'></div>")
@@ -404,6 +404,13 @@ def get_engine() -> Engine:
 
 @st.cache_data(show_spinner=False, ttl=300)
 def sql_df(query: str, params: dict | None = None) -> pd.DataFrame:
+    q = (query or "").lstrip().lower()
+    if not (q.startswith("select") or q.startswith("with")):
+        raise ValueError(
+            "❌ sql_df() est réservé aux requêtes SELECT/WITH.\n"
+            "Utilise exec_sql() ou exec_sql_scalar() pour écrire en base."
+        )
+
     eng = get_engine()
     with eng.connect() as conn:
         return pd.read_sql_query(sqltext(query), conn, params=params or {})
@@ -461,6 +468,17 @@ def add_column_if_missing(table: str, col_def: str):
 # =========================
 # Tables casses
 # =========================
+
+def exec_sql_scalar(query: str, params: dict | None = None):
+    """
+    Exécute une requête SQL et retourne une seule valeur (ex: id via RETURNING).
+    À utiliser UNIQUEMENT pour INSERT/UPDATE/DELETE avec RETURNING.
+    """
+    eng = get_engine()
+    with eng.begin() as conn:
+        res = conn.execute(sqltext(query), params or {})
+        return res.scalar()
+
 def ensure_breaker_tables():
     exec_sql(
         """
@@ -536,8 +554,8 @@ def get_or_create_breaker(name: str) -> int:
     ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
     RETURNING id;
     """
-    df = sql_df(q, {"name": name})
-    return int(df.iloc[0]["id"])
+    breaker_id = exec_sql_scalar(q, {"name": name})
+    return int(breaker_id)
 
 
 def insert_click_offer(
@@ -1449,15 +1467,16 @@ def render_besoins():
 
 
 def render_casse():
+    # ✅ (1) + ✅ (2) : éviter KeyError si refresh / session reset
+    st.session_state.setdefault("breaker_ok", False)
+    st.session_state.setdefault("breaker_id", None)
+
     st.markdown("## 🛠️ Interface Casse - Mode Rapide")
 
     access_code = st.secrets.get("BREAKER_ACCESS_CODE", "")
     if not access_code:
         st.error("BREAKER_ACCESS_CODE manquant dans .streamlit/secrets.toml")
         st.stop()
-
-    if "breaker_ok" not in st.session_state:
-        st.session_state["breaker_ok"] = False
 
     if not st.session_state["breaker_ok"]:
         md_html(
@@ -1488,8 +1507,19 @@ def render_casse():
             saved_name = localstorage_get("breaker_name", "")
             saved_code = localstorage_get("breaker_code", "")
 
-            breaker_name = st.text_input("🏢 Nom de votre casse", key="breaker_name", value=saved_name, placeholder="Ex: Casse Auto 32")
-            code = st.text_input("🔑 Code d'accès", type="password", key="breaker_code", value=saved_code, placeholder="Votre code")
+            breaker_name = st.text_input(
+                "🏢 Nom de votre casse",
+                key="breaker_name",
+                value=saved_name,
+                placeholder="Ex: Casse Auto 32",
+            )
+            code = st.text_input(
+                "🔑 Code d'accès",
+                type="password",
+                key="breaker_code",
+                value=saved_code,
+                placeholder="Votre code",
+            )
 
             if st.button("✅ Accéder à l'interface", type="primary", use_container_width=True):
                 if hmac.compare_digest((code or "").strip(), access_code):
@@ -1510,7 +1540,21 @@ def render_casse():
             md_html("</div>")
         return
 
-    breaker_id = int(st.session_state["breaker_id"])
+    # ✅ (3) : lecture safe de breaker_id (évite KeyError)
+    breaker_id_raw = st.session_state.get("breaker_id")
+
+    # Si l'ID n'existe pas (session reset, refresh, etc.), on revient au login casse
+    if breaker_id_raw is None:
+        st.session_state["breaker_ok"] = False
+        st.warning("Session casse expirée, merci de vous reconnecter.")
+        st.rerun()
+
+    try:
+        breaker_id = int(breaker_id_raw)
+    except Exception:
+        st.session_state["breaker_ok"] = False
+        st.warning("Session casse invalide, merci de vous reconnecter.")
+        st.rerun()
 
     md_html(
         """
@@ -1720,7 +1764,11 @@ def render_casse():
 
             st.divider()
             st.subheader("💬 Proposer une alternative")
-            alt_desc = st.text_input("Décrivez ce que vous avez", key=f"alt_desc_{idx}", placeholder=f"Ex: proche de {code}, autre année, autre version…")
+            alt_desc = st.text_input(
+                "Décrivez ce que vous avez",
+                key=f"alt_desc_{idx}",
+                placeholder=f"Ex: proche de {code}, autre année, autre version…",
+            )
             alt_prix = st.number_input("Prix (€)", min_value=0.0, value=100.0, step=10.0, key=f"alt_prix_{idx}")
             alt_note = st.text_input("Note", key=f"alt_note_{idx}", placeholder="Infos complémentaires")
 
@@ -1759,7 +1807,12 @@ def render_casse():
         with col2:
             free_prix = st.number_input("Prix (€)", min_value=0.0, value=0.0, step=10.0, key="casse_free_prix")
 
-        free_note = st.text_area("Détails", key="casse_free_note", placeholder="État, kilométrage, disponibilité...", height=80)
+        free_note = st.text_area(
+            "Détails",
+            key="casse_free_note",
+            placeholder="État, kilométrage, disponibilité...",
+            height=80,
+        )
 
         if st.button("📩 Envoyer", use_container_width=True, key="send_free"):
             if not texte.strip():
@@ -1779,6 +1832,7 @@ def render_casse():
                 st.success("✅ Moteur envoyé !")
                 st.balloons()
                 st.rerun()
+
 
 
 def normalize_code_moteur(x) -> str:
@@ -2150,7 +2204,7 @@ def init_db_once() -> bool:
 # MAIN
 # =========================
 def main():
-    st.set_page_config(page_title="Multirex Auto DMS", page_icon="🚗", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Multirex", page_icon="🚗", layout="wide", initial_sidebar_state="expanded")
     inject_custom_css()
 
     if not check_password():
