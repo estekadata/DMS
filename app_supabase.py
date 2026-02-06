@@ -1164,11 +1164,11 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     SELECT
         v.code_moteur,
         LEFT(COALESCE(s.type_nom, ''), 3) AS type_moteur,
-        COALESCE(s.marque, '') AS marque,
-        COALESCE(s.energie, '') AS energie,
-        COALESCE(s.type_nom, '') AS type_nom,
-        COALESCE(s.type_modele, '') AS type_modele,
-        COALESCE(s.type_annee, '') AS type_annee,
+        COALESCE(s.marque, '') AS marque,          -- ✅ Depuis v_moteurs_dispo
+        COALESCE(s.energie, '') AS energie,        -- ✅ Depuis v_moteurs_dispo
+        COALESCE(s.type_nom, '') AS type_nom,      -- ✅ Depuis v_moteurs_dispo
+        COALESCE(s.type_modele, '') AS type_modele,-- ✅ Depuis v_moteurs_dispo
+        COALESCE(s.type_annee, '') AS type_annee,  -- ✅ Depuis v_moteurs_dispo
         v.nb_vendus_3m,
         COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
         ROUND(a.prix_moy_3m, 2)  AS prix_moy_achat_3m,
