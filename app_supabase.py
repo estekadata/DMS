@@ -1620,9 +1620,6 @@ def render_casse():
             st.cache_data.clear()
             st.success("✅ Cache vidé !")
             st.rerun()
-    
-
-    
 
     st.markdown("## 🛠️ Interface Casse - Mode Rapide")
 
@@ -1738,6 +1735,7 @@ def render_casse():
         st.session_state["breaker_ok"] = False
         st.session_state.pop("breaker_id", None)
         st.rerun()
+
     # ========================================
     # ⬇️ DÉBUT DU CODE À AJOUTER ⬇️
     # ========================================
@@ -1771,10 +1769,10 @@ def render_casse():
     # Si une plaque est saisie
     if plaque_input and plaque_input.strip():
         plaque_df = search_plaque(plaque_input.strip())
-        
+
         if not plaque_df.empty:
             plaque_data = plaque_df.iloc[0].to_dict()
-            
+
             # Affichage visuel de la plaque style immatriculation française
             plaque_display = plaque_data.get("plaque", "").upper()
             md_html(f"""
@@ -1784,7 +1782,7 @@ def render_casse():
                 </div>
             </div>
             """)
-            
+
             # Affichage des informations du véhicule en métriques
             col_p1, col_p2, col_p3 = st.columns(3)
             with col_p1:
@@ -1793,13 +1791,13 @@ def render_casse():
                 st.metric("🏭 Marque", plaque_data.get("marque", "—"))
             with col_p3:
                 st.metric("⚡ Énergie", plaque_data.get("energie", "—"))
-            
+
             col_p4, col_p5 = st.columns(2)
             with col_p4:
                 st.metric("🚘 Modèle", plaque_data.get("modele", "—"))
             with col_p5:
                 st.metric("📅 Année", plaque_data.get("annee", "—"))
-            
+
             st.success("✅ Véhicule identifié ! Les besoins ci-dessous sont filtrés automatiquement.")
         else:
             st.warning(f"❌ Plaque '{plaque_input}' non trouvée dans la base")
@@ -1899,6 +1897,18 @@ def render_casse():
 
     st.markdown("### 🎯 Moteurs recherchés (vue rapide)")
 
+    # ✅ AJOUT MINIMAL : normaliser l'affichage des champs (évite NaN qui rend tout "vide")
+    def clean_txt(v):
+        if v is None:
+            return "—"
+        try:
+            if pd.isna(v):
+                return "—"
+        except Exception:
+            pass
+        s = str(v).strip()
+        return s if s else "—"
+
     for idx, row in besoins.iterrows():
         code = row.get("code_moteur", "")
         score = float(row.get("score_urgence", 0) or 0)
@@ -1906,11 +1916,11 @@ def render_casse():
         stock = int(row.get("nb_stock_dispo", 0) or 0)
         vendus = int(row.get("nb_vendus_3m", 0) or 0)
 
-        marque = row.get("marque", "")
-        energie = row.get("energie", "")
-        type_nom = row.get("type_nom", "")
-        type_modele = row.get("type_modele", "")
-        type_annee = row.get("type_annee", "")
+        marque = clean_txt(row.get("marque"))
+        energie = clean_txt(row.get("energie"))
+        type_nom = clean_txt(row.get("type_nom"))
+        type_modele = clean_txt(row.get("type_modele"))
+        type_annee = clean_txt(row.get("type_annee"))
 
         desc_casse = suggest_motor_description(row)
 
@@ -1921,7 +1931,7 @@ def render_casse():
         else:
             border_color, urgence_label, urgence_bg = "#059669", "✓ Normal", "#d1fae5"
 
-    # ✅ AJOUT DES INFOS MARQUE/ENERGIE ICI
+        # ✅ AJOUT DES INFOS MARQUE/ENERGIE ICI
         md_html(f"""
         <div style='background:white;border-left:6px solid {border_color};border-radius:14px;padding:14px;margin-bottom:12px;
                     box-shadow:0 2px 10px rgba(0,0,0,0.08);'>
@@ -1942,13 +1952,13 @@ def render_casse():
         <!-- ✅ SECTION AJOUTÉE : Affichage marque + energie + modèle -->
         <div style='margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;'>
             <span style='background:#f3f4f6;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#374151;'>
-            🏭 {marque if marque else "—"}
+            🏭 {marque}
             </span>
             <span style='background:#fef3c7;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#92400e;'>
-            ⚡ {energie if energie else "—"}
+            ⚡ {energie}
             </span>
             <span style='background:#e0e7ff;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#3730a3;'>
-            🚗 {type_modele if type_modele else "—"}
+            🚗 {type_modele}
             </span>
         </div>
 
@@ -2081,6 +2091,7 @@ def render_casse():
                 st.success("✅ Moteur envoyé !")
                 st.balloons()
                 st.rerun()
+
 
 
 
