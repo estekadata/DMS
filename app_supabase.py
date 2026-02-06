@@ -224,6 +224,43 @@ def inject_custom_css():
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
+        * Style pour la carte de recherche par plaque */
+        .plaque-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+            border: 2px solid #e5e7eb;
+        }
+
+        /* Style pour l'affichage visuel de la plaque d'immatriculation */
+        .plaque-visual {
+            /* Dégradé bleu style plaque française */
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            
+            /* Bordure épaisse bleue foncée */
+            border: 4px solid #1e3a8a;
+            border-radius: 8px;
+            
+            /* Espacement intérieur */
+            padding: 1rem 1.5rem;
+            
+            /* Police monospace style plaque */
+            font-family: 'Courier New', monospace;
+            font-size: 2rem;
+            font-weight: 900;
+            color: white;
+            text-align: center;
+            
+            /* Espacement entre les lettres */
+            letter-spacing: 0.3rem;
+            
+            /* Ombres pour effet 3D */
+            box-shadow: 
+                0 4px 6px rgba(0, 0, 0, 0.2),
+                inset 0 2px 4px rgba(255, 255, 255, 0.2);
+        }
         </style>
         """
     )
@@ -716,7 +753,107 @@ def get_breaker_stats_today(breaker_id: int) -> dict:
     row = sql_df(q, {"bid": int(breaker_id)}).iloc[0].to_dict()
     return {"click": int(row["n_click"]), "free": int(row["n_free"]), "total": int(row["n_click"]) + int(row["n_free"])}
 
+# ========================================
+# NOUVELLES FONCTIONS À AJOUTER DANS LE FICHIER main.py
+# À placer après la fonction get_breaker_stats_today() 
+# et avant la section "# ========================= Matching"
+# ========================================
 
+
+# =========================
+# Recherche par plaque
+# =========================
+
+@st.cache_data(show_spinner=False, ttl=300)
+def search_plaque(plaque: str) -> pd.DataFrame:
+    """
+    Recherche une plaque dans la base et retourne les infos du véhicule.
+    
+    La recherche normalise automatiquement la plaque :
+    - Convertit en majuscules
+    - Supprime les espaces
+    - Supprime les tirets
+    
+    Exemples :
+        "AB-123-CD" → recherche "AB123CD"
+        "ab 123 cd" → recherche "AB123CD"
+        "AB123CD"   → recherche "AB123CD"
+    
+    Args:
+        plaque: Numéro de plaque d'immatriculation (format libre)
+    
+    Returns:
+        DataFrame avec les infos du véhicule (vide si non trouvé)
+    """
+    if not plaque or not plaque.strip():
+        return pd.DataFrame()
+    
+    # Normaliser la plaque (enlever espaces, tirets, majuscules)
+    plaque_norm = plaque.upper().replace(" ", "").replace("-", "")
+    
+    q = """
+    SELECT 
+        plaque,
+        code_moteur,
+        marque,
+        modele,
+        annee,
+        energie
+    FROM public.plaques_vehicules
+    WHERE REPLACE(REPLACE(UPPER(plaque), ' ', ''), '-', '') = :plaque
+    LIMIT 1
+    """
+    return sql_df(q, {"plaque": plaque_norm})
+
+
+def filter_besoins_by_plaque(besoins: pd.DataFrame, plaque_info: dict) -> pd.DataFrame:
+    """
+    Filtre les besoins en fonction des informations de la plaque.
+    
+    Logique de filtrage :
+    1. D'abord, cherche par code moteur EXACT
+       → Si trouvé, retourne uniquement ces besoins
+    2. Sinon, cherche par marque ET énergie
+       → Retourne les besoins qui correspondent
+    3. Si rien ne correspond, retourne tous les besoins
+    
+    Args:
+        besoins: DataFrame des besoins actuels
+        plaque_info: Dict avec les infos du véhicule
+                    (code_moteur, marque, energie, etc.)
+    
+    Returns:
+        DataFrame filtré des besoins
+        
+    Examples:
+        >>> plaque_info = {"code_moteur": "K9K", "marque": "RENAULT", "energie": "DIESEL"}
+        >>> besoins_filtres = filter_besoins_by_plaque(besoins, plaque_info)
+        # Retourne uniquement les besoins K9K
+    """
+    if besoins.empty or not plaque_info:
+        return besoins
+    
+    # 1️⃣ Recherche par code moteur exact (priorité)
+    code = plaque_info.get("code_moteur", "").upper()
+    if code:
+        exact_match = besoins[besoins["code_moteur"].str.upper() == code]
+        if not exact_match.empty:
+            return exact_match
+    
+    # 2️⃣ Sinon recherche par marque + energie
+    marque = plaque_info.get("marque", "").upper()
+    energie = plaque_info.get("energie", "").upper()
+    
+    filtered = besoins.copy()
+    
+    if marque:
+        filtered = filtered[filtered["marque"].str.upper().str.contains(marque, na=False)]
+    
+    if energie:
+        filtered = filtered[filtered["energie"].str.upper().str.contains(energie, na=False)]
+    
+    # 3️⃣ Retourne les résultats filtrés ou tous les besoins si rien ne correspond
+    return filtered if not filtered.empty else besoins
 # =========================
 # Matching
 # =========================
@@ -1600,7 +1737,79 @@ def render_casse():
         st.session_state["breaker_ok"] = False
         st.session_state.pop("breaker_id", None)
         st.rerun()
+    # ========================================
+    # ⬇️ DÉBUT DU CODE À AJOUTER ⬇️
+    # ========================================
 
+    # Séparateur visuel
+    st.markdown("---")
+
+    # Carte de recherche par plaque
+    md_html("""
+    <div class='plaque-card'>
+        <div style='text-align: center; margin-bottom: 1.5rem;'>
+            <h2 style='margin: 0 0 0.5rem 0; color: #111827;'>🚗 Recherche par Plaque</h2>
+            <p style='margin: 0; color: #6b7280; font-size: 0.95rem;'>
+                Identifiez instantanément le moteur et son niveau d'urgence
+            </p>
+        </div>
+    </div>
+    """)
+
+    # Champ de saisie de la plaque
+    plaque_input = st.text_input(
+        "Numéro de plaque",
+        key="plaque_search",
+        placeholder="Ex: AB-123-CD ou AB123CD",
+        label_visibility="collapsed",
+    )
+
+    # Initialiser la variable plaque_data
+    plaque_data = None
+
+    # Si une plaque est saisie
+    if plaque_input and plaque_input.strip():
+        plaque_df = search_plaque(plaque_input.strip())
+        
+        if not plaque_df.empty:
+            plaque_data = plaque_df.iloc[0].to_dict()
+            
+            # Affichage visuel de la plaque style immatriculation française
+            plaque_display = plaque_data.get("plaque", "").upper()
+            md_html(f"""
+            <div style='text-align: center; margin: 2rem 0;'>
+                <div class='plaque-visual'>
+                    🇫🇷 {plaque_display}
+                </div>
+            </div>
+            """)
+            
+            # Affichage des informations du véhicule en métriques
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                st.metric("🏷️ Code Moteur", plaque_data.get("code_moteur", "—"))
+            with col_p2:
+                st.metric("🏭 Marque", plaque_data.get("marque", "—"))
+            with col_p3:
+                st.metric("⚡ Énergie", plaque_data.get("energie", "—"))
+            
+            col_p4, col_p5 = st.columns(2)
+            with col_p4:
+                st.metric("🚘 Modèle", plaque_data.get("modele", "—"))
+            with col_p5:
+                st.metric("📅 Année", plaque_data.get("annee", "—"))
+            
+            st.success("✅ Véhicule identifié ! Les besoins ci-dessous sont filtrés automatiquement.")
+        else:
+            st.warning(f"❌ Plaque '{plaque_input}' non trouvée dans la base")
+            st.info("💡 Ajoutez cette plaque dans Supabase pour l'identifier automatiquement la prochaine fois")
+
+    # Séparateur avant la recherche classique
+    st.markdown("---")
+
+    # ========================================
+    # ⬆️ FIN DU CODE À AJOUTER ⬆️
+    # ========================================
     st.markdown("### 🔍 Recherche Intelligente")
     st.caption("💡 **Astuce**: Tapez comme vous parlez ! Ex: 'Renault diesel 1.5' ou 'K9K' ou 'Clio diesel 2015'")
 
@@ -1621,7 +1830,17 @@ def render_casse():
         st.info("Aucun besoin actuellement")
         return
 
-    if search and search.strip():
+    if plaque_data:
+        besoins = filter_besoins_by_plaque(besoins, plaque_data)
+        if besoins.empty:
+            st.warning(f"❌ Aucun besoin ne correspond au moteur {plaque_data.get('code_moteur', '')}")
+            st.info("💡 Ce moteur n'est pas recherché actuellement")
+            return
+        else:
+            st.success(f"🎯 {len(besoins)} moteur(s) correspondant à la plaque !")
+
+    # Filtrage par recherche texte (seulement si pas de plaque active)
+    if search and search.strip() and not plaque_data:  # ⬅️ AJOUTER "and not plaque_data"
         besoins_filtered = smart_match_motor(search.strip(), besoins)
 
         if besoins_filtered.empty:
