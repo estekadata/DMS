@@ -1550,6 +1550,21 @@ def render_besoins():
     topn = st.slider("Nombre de besoins affichés", min_value=10, max_value=200, value=50, step=10)
     if piece == "moteurs":
         besoins = get_besoins_moteurs(topn)
+        # AJOUTE CE CODE DE DEBUG :
+        st.write("### 🔍 DEBUG - Colonnes disponibles :")
+        st.write(list(besoins.columns))
+
+        st.write("### 🔍 DEBUG - Premières lignes :")
+        st.dataframe(besoins.head(3))
+
+        st.write("### 🔍 DEBUG - Exemple de valeurs :")
+        if not besoins.empty:
+            premier = besoins.iloc[0]
+            st.write(f"Code moteur: {premier.get('code_moteur')}")
+            st.write(f"Marque: {premier.get('marque')}")
+            st.write(f"Energie: {premier.get('energie')}")
+            st.write(f"Type nom: {premier.get('type_nom')}")
+            st.write(f"Type modele: {premier.get('type_modele')}")
     else:
         besoins = get_besoins_boites(topn)
 
