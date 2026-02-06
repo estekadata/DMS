@@ -1256,41 +1256,87 @@ def get_prix_achat_dispo(limit: int = 200000) -> pd.DataFrame:
     )
 
 
+# ========================================
+# VERSION CORRIGÉE de get_besoins_moteurs()
+# Remplace la fonction existante dans ton main.py
+# ========================================
+
 @st.cache_data(show_spinner=False, ttl=300)
-def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
+def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
+    """
+    Version corrigée qui récupère TOUTES les infos depuis tbl_types_moteurs
+    """
     q = """
     WITH ventes AS (
         SELECT
-            CAST(eb.N_BV AS TEXT) AS code_boite,
+            UPPER(m.code_moteur) AS code_moteur,
+            m.n_type_moteur,
             COUNT(*) AS nb_vendus_3m
-        FROM "tbl_EXPEDITIONS_boîtes" eb
-        WHERE eb.date_validation >= NOW() - INTERVAL '3 months'
-        GROUP BY CAST(eb.N_BV AS TEXT)
+        FROM tbl_EXPEDITIONS_moteurs em
+        JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
+        WHERE em.date_validation >= NOW() - INTERVAL '3 months'
+          AND m.code_moteur IS NOT NULL
+          AND TRIM(m.code_moteur) <> ''
+        GROUP BY UPPER(m.code_moteur), m.n_type_moteur
     ),
-    stock AS (
+    achats AS (
         SELECT
-            CAST(N_BV AS TEXT) AS code_boite,
+            UPPER(m.code_moteur) AS code_moteur,
+            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months'  THEN m.prix_achat_moteur END) AS prix_moy_3m,
+            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '6 months'  THEN m.prix_achat_moteur END) AS prix_moy_6m,
+            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '12 months' THEN m.prix_achat_moteur END) AS prix_moy_12m
+        FROM tbl_MOTEURS m
+        JOIN tbl_RECEPTIONS r ON r."n_reception" = m.num_reception
+        WHERE m.prix_achat_moteur IS NOT NULL
+          AND r.date_achat IS NOT NULL
+        GROUP BY UPPER(m.code_moteur)
+    ),
+    stock_dispo AS (
+        SELECT
+            UPPER(code_moteur) AS code_moteur,
             COUNT(*) AS nb_stock_dispo
-        FROM tbl_boites
-        WHERE Stock = 1
-          AND (Vendu IS NULL OR Vendu = 0)
-        GROUP BY CAST(N_BV AS TEXT)
+        FROM v_moteurs_dispo
+        WHERE est_disponible = 1
+          AND (archiver IS NULL OR archiver = True)
+        GROUP BY UPPER(code_moteur)
+    ),
+    infos_types AS (
+        -- ✅ NOUVEAU : Récupère les infos depuis tbl_types_moteurs
+        SELECT DISTINCT
+            m.n_type_moteur,
+            COALESCE(tm.constructeur_nom, '') AS marque,
+            COALESCE(tm.energie, '') AS energie,
+            COALESCE(tm.nom_type_moteur, '') AS type_nom,
+            COALESCE(tm.modele_vehicule, '') AS type_modele,
+            COALESCE(tm.annee_debut::TEXT, '') AS type_annee
+        FROM tbl_MOTEURS m
+        LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+        WHERE m.n_type_moteur IS NOT NULL
     )
     SELECT
-        v.code_boite,
+        v.code_moteur,
+        LEFT(COALESCE(i.type_nom, ''), 3) AS type_moteur,
+        i.marque,
+        i.energie,
+        i.type_nom,
+        i.type_modele,
+        i.type_annee,
         v.nb_vendus_3m,
-        COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo
+        COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
+        ROUND(a.prix_moy_3m, 2)  AS prix_moy_achat_3m,
+        ROUND(a.prix_moy_6m, 2)  AS prix_moy_achat_6m,
+        ROUND(a.prix_moy_12m, 2) AS prix_moy_achat_12m
     FROM ventes v
-    LEFT JOIN stock s ON s.code_boite = v.code_boite
+    LEFT JOIN achats a ON a.code_moteur = v.code_moteur
+    LEFT JOIN stock_dispo s ON s.code_moteur = v.code_moteur
+    LEFT JOIN infos_types i ON i.n_type_moteur = v.n_type_moteur  -- ✅ JOIN avec les infos
     ORDER BY v.nb_vendus_3m DESC
     LIMIT :topn
     """
     df = sql_df(q, {"topn": int(top_n)})
-
     if not df.empty:
         df["score_urgence"] = (df["nb_vendus_3m"] / (df["nb_stock_dispo"] + 1)).round(2)
-        df = df.sort_values("score_urgence", ascending=False)
-
+        df = df.sort_values(["score_urgence", "nb_vendus_3m"], ascending=False)
     return df
 
 
