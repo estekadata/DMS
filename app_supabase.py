@@ -1613,6 +1613,17 @@ def render_casse():
     st.session_state.setdefault("breaker_ok", False)
     st.session_state.setdefault("breaker_id", None)
 
+    # ✅ AJOUTE CE CODE ICI - BOUTON POUR VIDER LE CACHE
+    col_debug1, col_debug2 = st.columns([3, 1])
+    with col_debug2:
+        if st.button("🔄 Vider cache", key="clear_cache_btn"):
+            st.cache_data.clear()
+            st.success("✅ Cache vidé !")
+            st.rerun()
+    
+
+    
+
     st.markdown("## 🛠️ Interface Casse - Mode Rapide")
 
     access_code = st.secrets.get("BREAKER_ACCESS_CODE", "")
