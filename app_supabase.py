@@ -1111,54 +1111,71 @@ def ensure_stock_views():
     """)
 
 
+# ========================================
+# VERSION FINALE CORRIGÉE de get_besoins_moteurs()
+# REMPLACE les 2 versions existantes par celle-ci
+# ========================================
+
 @st.cache_data(show_spinner=False, ttl=300)
 def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
+    """
+    Récupère les besoins de moteurs avec infos complètes depuis tbl_types_moteurs
+    """
     q = """
     WITH ventes AS (
-    SELECT
-        UPPER(m.code_moteur) AS code_moteur,
-        LEFT(tm.nom_type_moteur, 3) AS type_moteur,
-        COUNT(*) AS nb_vendus_3m
-    FROM tbl_EXPEDITIONS_moteurs em
-    JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
-    LEFT JOIN tbl_types_moteurs tm ON m.n_type_moteur = tm.n_type_moteur
-    WHERE em.date_validation >= NOW() - INTERVAL '3 months'
-    GROUP BY UPPER(m.code_moteur), LEFT(tm.nom_type_moteur, 3)
+        SELECT
+            UPPER(m.code_moteur) AS code_moteur,
+            m.n_type_moteur,
+            COUNT(*) AS nb_vendus_3m
+        FROM tbl_expeditions_moteurs em
+        JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+        WHERE em.date_validation >= NOW() - INTERVAL '3 months'
+          AND m.code_moteur IS NOT NULL
+          AND TRIM(m.code_moteur) <> ''
+        GROUP BY UPPER(m.code_moteur), m.n_type_moteur
     ),
     achats AS (
-      SELECT
-        UPPER(m.code_moteur) AS code_moteur,
-        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months'  THEN m.prix_achat_moteur END) AS prix_moy_3m,
-        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '6 months'  THEN m.prix_achat_moteur END) AS prix_moy_6m,
-        AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '12 months' THEN m.prix_achat_moteur END) AS prix_moy_12m
-      FROM tbl_MOTEURS m
-      JOIN tbl_RECEPTIONS r ON r."n_reception" = m.num_reception
-      WHERE m.prix_achat_moteur IS NOT NULL
-        AND r.date_achat IS NOT NULL
-      GROUP BY UPPER(m.code_moteur)
+        SELECT
+            UPPER(m.code_moteur) AS code_moteur,
+            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months'  THEN m.prix_achat_moteur END) AS prix_moy_3m,
+            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '6 months'  THEN m.prix_achat_moteur END) AS prix_moy_6m,
+            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '12 months' THEN m.prix_achat_moteur END) AS prix_moy_12m
+        FROM tbl_moteurs m
+        JOIN tbl_receptions r ON r.n_reception = m.num_reception
+        WHERE m.prix_achat_moteur IS NOT NULL
+          AND r.date_achat IS NOT NULL
+        GROUP BY UPPER(m.code_moteur)
     ),
     stock_dispo AS (
-      SELECT
-        UPPER(code_moteur) AS code_moteur,
-        MAX(marque) AS marque,
-        MAX(energie) AS energie,
-        MAX(type_nom) AS type_nom,
-        MAX(type_modele) AS type_modele,
-        MAX(type_annee) AS type_annee,
-        COUNT(*) AS nb_stock_dispo
-      FROM v_moteurs_dispo
-      WHERE est_disponible = 1
-        AND (archiver IS NULL OR archiver = True)
-      GROUP BY UPPER(code_moteur)
+        SELECT
+            UPPER(code_moteur) AS code_moteur,
+            COUNT(*) AS nb_stock_dispo
+        FROM v_moteurs_dispo
+        WHERE est_disponible = 1
+          AND (archiver IS NULL OR archiver = True)
+        GROUP BY UPPER(code_moteur)
+    ),
+    infos_types AS (
+        -- Récupère les infos depuis tbl_types_moteurs
+        SELECT DISTINCT
+            m.n_type_moteur,
+            COALESCE(tm.constructeur_nom, '') AS marque,
+            COALESCE(tm.energie, '') AS energie,
+            COALESCE(tm.nom_type_moteur, '') AS type_nom,
+            COALESCE(tm.modele_vehicule, '') AS type_modele,
+            COALESCE(CAST(tm.annee_debut AS TEXT), '') AS type_annee
+        FROM tbl_moteurs m
+        LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+        WHERE m.n_type_moteur IS NOT NULL
     )
     SELECT
         v.code_moteur,
-        v.type_moteur,
-        COALESCE(s.marque, '') AS marque,
-        COALESCE(s.energie, '') AS energie,
-        COALESCE(s.type_nom, '') AS type_nom,
-        COALESCE(s.type_modele, '') AS type_modele,
-        COALESCE(s.type_annee, '') AS type_annee,
+        LEFT(COALESCE(i.type_nom, ''), 3) AS type_moteur,
+        i.marque,
+        i.energie,
+        i.type_nom,
+        i.type_modele,
+        i.type_annee,
         v.nb_vendus_3m,
         COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
         ROUND(a.prix_moy_3m, 2)  AS prix_moy_achat_3m,
@@ -1167,6 +1184,7 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     FROM ventes v
     LEFT JOIN achats a ON a.code_moteur = v.code_moteur
     LEFT JOIN stock_dispo s ON s.code_moteur = v.code_moteur
+    LEFT JOIN infos_types i ON i.n_type_moteur = v.n_type_moteur
     ORDER BY v.nb_vendus_3m DESC
     LIMIT :topn
     """
@@ -1256,88 +1274,7 @@ def get_prix_achat_dispo(limit: int = 200000) -> pd.DataFrame:
     )
 
 
-# ========================================
-# VERSION CORRIGÉE de get_besoins_moteurs()
-# Remplace la fonction existante dans ton main.py
-# ========================================
 
-@st.cache_data(show_spinner=False, ttl=300)
-def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
-    """
-    Version corrigée qui récupère TOUTES les infos depuis tbl_types_moteurs
-    """
-    q = """
-    WITH ventes AS (
-        SELECT
-            UPPER(m.code_moteur) AS code_moteur,
-            m.n_type_moteur,
-            COUNT(*) AS nb_vendus_3m
-        FROM tbl_EXPEDITIONS_moteurs em
-        JOIN tbl_MOTEURS m ON m.n_moteur = em.n_moteur
-        WHERE em.date_validation >= NOW() - INTERVAL '3 months'
-          AND m.code_moteur IS NOT NULL
-          AND TRIM(m.code_moteur) <> ''
-        GROUP BY UPPER(m.code_moteur), m.n_type_moteur
-    ),
-    achats AS (
-        SELECT
-            UPPER(m.code_moteur) AS code_moteur,
-            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months'  THEN m.prix_achat_moteur END) AS prix_moy_3m,
-            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '6 months'  THEN m.prix_achat_moteur END) AS prix_moy_6m,
-            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '12 months' THEN m.prix_achat_moteur END) AS prix_moy_12m
-        FROM tbl_MOTEURS m
-        JOIN tbl_RECEPTIONS r ON r."n_reception" = m.num_reception
-        WHERE m.prix_achat_moteur IS NOT NULL
-          AND r.date_achat IS NOT NULL
-        GROUP BY UPPER(m.code_moteur)
-    ),
-    stock_dispo AS (
-        SELECT
-            UPPER(code_moteur) AS code_moteur,
-            COUNT(*) AS nb_stock_dispo
-        FROM v_moteurs_dispo
-        WHERE est_disponible = 1
-          AND (archiver IS NULL OR archiver = True)
-        GROUP BY UPPER(code_moteur)
-    ),
-    infos_types AS (
-        -- ✅ NOUVEAU : Récupère les infos depuis tbl_types_moteurs
-        SELECT DISTINCT
-            m.n_type_moteur,
-            COALESCE(tm.constructeur_nom, '') AS marque,
-            COALESCE(tm.energie, '') AS energie,
-            COALESCE(tm.nom_type_moteur, '') AS type_nom,
-            COALESCE(tm.modele_vehicule, '') AS type_modele,
-            COALESCE(tm.annee_debut::TEXT, '') AS type_annee
-        FROM tbl_MOTEURS m
-        LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
-        WHERE m.n_type_moteur IS NOT NULL
-    )
-    SELECT
-        v.code_moteur,
-        LEFT(COALESCE(i.type_nom, ''), 3) AS type_moteur,
-        i.marque,
-        i.energie,
-        i.type_nom,
-        i.type_modele,
-        i.type_annee,
-        v.nb_vendus_3m,
-        COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
-        ROUND(a.prix_moy_3m, 2)  AS prix_moy_achat_3m,
-        ROUND(a.prix_moy_6m, 2)  AS prix_moy_achat_6m,
-        ROUND(a.prix_moy_12m, 2) AS prix_moy_achat_12m
-    FROM ventes v
-    LEFT JOIN achats a ON a.code_moteur = v.code_moteur
-    LEFT JOIN stock_dispo s ON s.code_moteur = v.code_moteur
-    LEFT JOIN infos_types i ON i.n_type_moteur = v.n_type_moteur  -- ✅ JOIN avec les infos
-    ORDER BY v.nb_vendus_3m DESC
-    LIMIT :topn
-    """
-    df = sql_df(q, {"topn": int(top_n)})
-    if not df.empty:
-        df["score_urgence"] = (df["nb_vendus_3m"] / (df["nb_stock_dispo"] + 1)).round(2)
-        df = df.sort_values(["score_urgence", "nb_vendus_3m"], ascending=False)
-    return df
 
 
 @st.cache_data(show_spinner=False, ttl=300)
