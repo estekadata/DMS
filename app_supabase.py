@@ -1158,7 +1158,7 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
             COUNT(*) AS nb_stock_dispo
         FROM v_moteurs_dispo
         WHERE est_disponible = 1
-          AND (archiver IS NULL OR archiver = True)
+          AND (archiver IS NULL OR archiver = False)
         GROUP BY UPPER(code_moteur)
     )
     SELECT
