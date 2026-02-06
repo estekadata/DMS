@@ -1895,26 +1895,40 @@ def render_casse():
         else:
             border_color, urgence_label, urgence_bg = "#059669", "✓ Normal", "#d1fae5"
 
+    # ✅ AJOUT DES INFOS MARQUE/ENERGIE ICI
         md_html(f"""
         <div style='background:white;border-left:6px solid {border_color};border-radius:14px;padding:14px;margin-bottom:12px;
                     box-shadow:0 2px 10px rgba(0,0,0,0.08);'>
-          <div style='display:flex;justify-content:space-between;align-items:center;gap:12px;'>
+        <div style='display:flex;justify-content:space-between;align-items:center;gap:12px;'>
             <div style='display:flex;align-items:center;gap:10px;'>
-              <span style='font-family:monospace;font-weight:900;font-size:20px;
-                           background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-                           color:white;padding:8px 12px;border-radius:10px;'>{code}</span>
-              <span style='background:{urgence_bg};color:{border_color};padding:6px 10px;border-radius:10px;
-                           font-weight:700;font-size:12px;'>{urgence_label}</span>
+            <span style='font-family:monospace;font-weight:900;font-size:20px;
+                        background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+                        color:white;padding:8px 12px;border-radius:10px;'>{code}</span>
+            <span style='background:{urgence_bg};color:{border_color};padding:6px 10px;border-radius:10px;
+                        font-weight:700;font-size:12px;'>{urgence_label}</span>
             </div>
             <div style='text-align:right;'>
-              <div style='font-size:11px;color:#6b7280;font-weight:700;'>PRIX MOYEN</div>
-              <div style='font-size:18px;color:#111827;font-weight:900;'>{f"{int(prix):d}€" if pd.notna(prix) and float(prix) > 0 else "—"}</div>
+            <div style='font-size:11px;color:#6b7280;font-weight:700;'>PRIX MOYEN</div>
+            <div style='font-size:18px;color:#111827;font-weight:900;'>{f"{int(prix):d}€" if pd.notna(prix) and float(prix) > 0 else "—"}</div>
             </div>
-          </div>
+        </div>
 
-          <div style='margin-top:10px;background:#f9fafb;padding:10px;border-radius:10px;'>
+        <!-- ✅ SECTION AJOUTÉE : Affichage marque + energie + modèle -->
+        <div style='margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;'>
+            <span style='background:#f3f4f6;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#374151;'>
+            🏭 {marque if marque else "—"}
+            </span>
+            <span style='background:#fef3c7;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#92400e;'>
+            ⚡ {energie if energie else "—"}
+            </span>
+            <span style='background:#e0e7ff;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#3730a3;'>
+            🚗 {type_modele if type_modele else "—"}
+            </span>
+        </div>
+
+        <div style='margin-top:10px;background:#f9fafb;padding:10px;border-radius:10px;'>
             <div style='color:#111827;font-weight:800;font-size:14px;'>🗣️ "{desc_casse}"</div>
-          </div>
+        </div>
         </div>
         """)
 
