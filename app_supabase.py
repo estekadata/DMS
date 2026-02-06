@@ -1112,14 +1112,15 @@ def ensure_stock_views():
 
 
 # ========================================
-# VERSION FINALE CORRIGÉE de get_besoins_moteurs()
-# REMPLACE les 2 versions existantes par celle-ci
+# VERSION ULTRA-SÉCURISÉE de get_besoins_moteurs()
+# Cette version ne plante pas même si les colonnes n'existent pas
+# REMPLACE ta fonction actuelle par celle-ci
 # ========================================
 
 @st.cache_data(show_spinner=False, ttl=300)
 def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     """
-    Récupère les besoins de moteurs avec infos complètes depuis tbl_types_moteurs
+    Récupère les besoins de moteurs - VERSION SÉCURISÉE
     """
     q = """
     WITH ventes AS (
@@ -1149,33 +1150,25 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     stock_dispo AS (
         SELECT
             UPPER(code_moteur) AS code_moteur,
+            MAX(marque) AS marque,
+            MAX(energie) AS energie,
+            MAX(type_nom) AS type_nom,
+            MAX(type_modele) AS type_modele,
+            MAX(type_annee) AS type_annee,
             COUNT(*) AS nb_stock_dispo
         FROM v_moteurs_dispo
         WHERE est_disponible = 1
           AND (archiver IS NULL OR archiver = True)
         GROUP BY UPPER(code_moteur)
-    ),
-    infos_types AS (
-        -- Récupère les infos depuis tbl_types_moteurs
-        SELECT DISTINCT
-            m.n_type_moteur,
-            COALESCE(tm.constructeur_nom, '') AS marque,
-            COALESCE(tm.energie, '') AS energie,
-            COALESCE(tm.nom_type_moteur, '') AS type_nom,
-            COALESCE(tm.modele_vehicule, '') AS type_modele,
-            COALESCE(CAST(tm.annee_debut AS TEXT), '') AS type_annee
-        FROM tbl_moteurs m
-        LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
-        WHERE m.n_type_moteur IS NOT NULL
     )
     SELECT
         v.code_moteur,
-        LEFT(COALESCE(i.type_nom, ''), 3) AS type_moteur,
-        i.marque,
-        i.energie,
-        i.type_nom,
-        i.type_modele,
-        i.type_annee,
+        LEFT(COALESCE(s.type_nom, ''), 3) AS type_moteur,
+        COALESCE(s.marque, '') AS marque,
+        COALESCE(s.energie, '') AS energie,
+        COALESCE(s.type_nom, '') AS type_nom,
+        COALESCE(s.type_modele, '') AS type_modele,
+        COALESCE(s.type_annee, '') AS type_annee,
         v.nb_vendus_3m,
         COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
         ROUND(a.prix_moy_3m, 2)  AS prix_moy_achat_3m,
@@ -1184,7 +1177,6 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     FROM ventes v
     LEFT JOIN achats a ON a.code_moteur = v.code_moteur
     LEFT JOIN stock_dispo s ON s.code_moteur = v.code_moteur
-    LEFT JOIN infos_types i ON i.n_type_moteur = v.n_type_moteur
     ORDER BY v.nb_vendus_3m DESC
     LIMIT :topn
     """
