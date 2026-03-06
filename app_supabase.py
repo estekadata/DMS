@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import os
 import textwrap
 from pathlib import Path
 from datetime import datetime
@@ -59,8 +60,8 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 COLORS = {
-    "primary": "#6366f1",
-    "secondary": "#8b5cf6",
+    "primary": "#C41E3A",
+    "secondary": "#8B1A2B",
     "success": "#10b981",
     "warning": "#f59e0b",
     "danger": "#ef4444",
@@ -78,7 +79,7 @@ def inject_custom_css():
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         * { font-family: 'Inter', sans-serif; }
 
-        .main { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative; }
+        .main { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); position: relative; }
         .main::before {
             content: '';
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -108,14 +109,14 @@ def inject_custom_css():
         }
 
         .stButton > button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #C41E3A 0%, #991B1E 100%);
             color: white;
             border: none;
             border-radius: 12px;
             padding: 0.75rem 2rem;
             font-weight: 600;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3);
             position: relative;
             overflow: hidden;
         }
@@ -128,7 +129,7 @@ def inject_custom_css():
             transition: left 0.5s ease;
         }
         .stButton > button:hover::before { left: 100%; }
-        .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4); }
+        .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(196, 30, 58, 0.4); }
         .stButton > button:active { transform: translateY(0px); }
 
         .stTextInput > div > div > input,
@@ -142,8 +143,8 @@ def inject_custom_css():
         }
         .stTextInput > div > div > input:focus,
         .stNumberInput > div > div > input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            border-color: #C41E3A;
+            box-shadow: 0 0 0 4px rgba(196, 30, 58, 0.1);
             transform: translateY(-1px);
         }
         .stTextInput > div > div > input::placeholder { color: #9ca3af; }
@@ -151,13 +152,13 @@ def inject_custom_css():
         [data-testid="stMetricValue"] {
             font-size: 2rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #C41E3A 0%, #8B1A2B 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(180deg, #C41E3A 0%, #8B1A2B 100%);
             box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
         }
         [data-testid="stSidebar"] * { color: white !important; }
@@ -208,17 +209,17 @@ def inject_custom_css():
             font-weight: 600;
             transition: all 0.3s ease;
         }
-        .stTabs [data-baseweb="tab"]:hover { background-color: rgba(102, 126, 234, 0.1); }
+        .stTabs [data-baseweb="tab"]:hover { background-color: rgba(196, 30, 58, 0.1); }
 
         ::-webkit-scrollbar { width: 12px; height: 12px; }
         ::-webkit-scrollbar-track { background: rgba(241, 241, 241, 0.5); border-radius: 10px; }
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #C41E3A 0%, #8B1A2B 100%);
             border-radius: 10px;
             border: 2px solid rgba(255, 255, 255, 0.3);
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+            background: linear-gradient(135deg, #a01830 0%, #6e1422 100%);
         }
 
         #MainMenu {visibility: hidden;}
@@ -282,7 +283,7 @@ def check_password() -> bool:
         """
         <style>
         section[data-testid="stSidebar"] { display: none; }
-        .stApp { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; }
+        .stApp { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important; }
         .main .block-container { max-width: 480px !important; padding-top: 3rem !important; }
 
         div[data-testid="stTextInput"] > div > div > input {
@@ -293,8 +294,8 @@ def check_password() -> bool:
             font-size: 15px !important;
         }
         div[data-testid="stTextInput"] > div > div > input:focus {
-            border-color: #667eea !important;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+            border-color: #C41E3A !important;
+            box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1) !important;
         }
         div[data-testid="stTextInput"] label {
             color: #374151 !important;
@@ -309,7 +310,7 @@ def check_password() -> bool:
             font-size: 15px !important;
         }
         .stButton button[kind="primary"] {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            background: linear-gradient(135deg, #C41E3A 0%, #991B1E 100%) !important;
             border: none !important;
         }
         .stButton button[kind="secondary"] {
@@ -381,7 +382,6 @@ def check_password() -> bool:
             st.session_state["mode"] = "admin"
             st.session_state["page"] = "home"
             st.success("✅ Connexion réussie !")
-            st.balloons()
             st.rerun()
         else:
             st.error("❌ Identifiants incorrects")
@@ -405,15 +405,15 @@ def check_password() -> bool:
                 border-radius: 50px;
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
             '>
-                <span style='color: #667eea; font-weight: 600; font-size: 13px;'>📊 Analytics</span>
-                <span style='color: #667eea; font-weight: 600; font-size: 13px;'>⚡ Temps réel</span>
-                <span style='color: #667eea; font-weight: 600; font-size: 13px;'>🔒 Sécurisé</span>
+                <span style='color: #C41E3A; font-weight: 600; font-size: 13px;'>📊 Analytics</span>
+                <span style='color: #C41E3A; font-weight: 600; font-size: 13px;'>⚡ Temps réel</span>
+                <span style='color: #C41E3A; font-weight: 600; font-size: 13px;'>🔒 Sécurisé</span>
             </div>
             <p style='
                 color: rgba(255, 255, 255, 0.8);
                 margin-top: 24px;
                 font-size: 13px;
-            '>Multirex Auto © 2025</p>
+            '>Multirex Auto © 2026</p>
         </div>
         """
     )
@@ -1008,37 +1008,90 @@ def render_home():
         """
     )
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    # --- Row 1: Main sections ---
+    st.markdown("#### Gestion commerciale")
+    c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         if st.button("📈", key="btn_ventes", use_container_width=True):
             set_page("ventes")
             st.rerun()
-        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Ventes</h3><p style='color: #6b7280;'>Analyse des ventes</p></div>")
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Ventes</h4><p style='color: #6b7280; font-size:0.85rem;'>Analyse des ventes</p></div>")
 
     with c2:
         if st.button("🎯", key="btn_besoins", use_container_width=True):
             set_page("besoins")
             st.rerun()
-        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Besoins</h3><p style='color: #6b7280;'>Besoins casses</p></div>")
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Besoins</h4><p style='color: #6b7280; font-size:0.85rem;'>Besoins casses</p></div>")
 
     with c3:
         if st.button("📊", key="btn_analyse", use_container_width=True):
             set_page("analyse")
             st.rerun()
-        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Analyse</h3><p style='color: #6b7280;'>Statistiques</p></div>")
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Analyse</h4><p style='color: #6b7280; font-size:0.85rem;'>Statistiques</p></div>")
 
     with c4:
-        if st.button("🛠️", key="btn_casse", use_container_width=True):
-            set_page("casse")
-            st.rerun()
-        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Accès Casse</h3><p style='color: #6b7280;'>Interface casses</p></div>")
-
-    with c5:
         if st.button("💶", key="btn_prix", use_container_width=True):
             set_page("mise_a_jour_prix")
             st.rerun()
-        md_html("<div style='text-align: center; margin-top: 1rem;'><h3>Mise à jour des prix</h3><p style='color: #6b7280;'>Propositions achat</p></div>")
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Mise a jour prix</h4><p style='color: #6b7280; font-size:0.85rem;'>Propositions achat</p></div>")
+
+    md_html("<br>")
+
+    # --- Row 2: Gestion interne (Access replacement) ---
+    st.markdown("#### Gestion interne")
+    c5, c6, c7, c8 = st.columns(4)
+
+    with c5:
+        if st.button("📥", key="btn_receptions", use_container_width=True):
+            set_page("receptions")
+            st.rerun()
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Receptions</h4><p style='color: #6b7280; font-size:0.85rem;'>Gestion des arrivages</p></div>")
+
+    with c6:
+        if st.button("🔍", key="btn_id_moteurs", use_container_width=True):
+            set_page("identification_moteurs")
+            st.rerun()
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Moteurs</h4><p style='color: #6b7280; font-size:0.85rem;'>Identification moteurs</p></div>")
+
+    with c7:
+        if st.button("⚙️", key="btn_id_boites", use_container_width=True):
+            set_page("identification_boites")
+            st.rerun()
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Boites</h4><p style='color: #6b7280; font-size:0.85rem;'>Identification BV</p></div>")
+
+    with c8:
+        if st.button("📋", key="btn_resa", use_container_width=True):
+            set_page("reservations")
+            st.rerun()
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Reservations</h4><p style='color: #6b7280; font-size:0.85rem;'>Reservations clients</p></div>")
+
+    md_html("<br>")
+
+    # --- Row 3: Autres ---
+    st.markdown("#### Outils")
+    c9, c10, c11, c12 = st.columns(4)
+
+    with c9:
+        if st.button("📜", key="btn_histo", use_container_width=True):
+            set_page("historique")
+            st.rerun()
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Historique</h4><p style='color: #6b7280; font-size:0.85rem;'>Receptions & expeditions</p></div>")
+
+    with c10:
+        if st.button("🔩", key="btn_pieces", use_container_width=True):
+            set_page("pieces_detachees")
+            st.rerun()
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Pieces Detachees</h4><p style='color: #6b7280; font-size:0.85rem;'>Stock alternateurs, demarreurs...</p></div>")
+
+    with c11:
+        if st.button("🛠️", key="btn_casse", use_container_width=True):
+            set_page("casse")
+            st.rerun()
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Acces Casse</h4><p style='color: #6b7280; font-size:0.85rem;'>Interface casses</p></div>")
+
+    with c12:
+        md_html("<div style='text-align: center; margin-top: 0.5rem; opacity: 0.3;'><h4>&nbsp;</h4></div>")
 
 
 # =========================
@@ -1055,6 +1108,154 @@ def get_kpis_stock() -> dict:
     """
     row = sql_df(q).iloc[0].to_dict()
     return {k: int(row[k]) for k in row.keys()}
+
+
+@st.cache_data(show_spinner=False, ttl=120)
+def get_all_dashboard_kpis() -> dict:
+    """Fetch all dashboard KPIs in one batch for performance."""
+    kpis = {}
+
+    # Moteurs stock
+    r = sql_df("""
+    SELECT
+      SUM(CASE WHEN est_disponible = 1 THEN 1 ELSE 0 END) AS mot_dispo,
+      COUNT(*) AS mot_total
+    FROM v_moteurs_dispo
+    """).iloc[0]
+    kpis["mot_dispo"] = int(r["mot_dispo"])
+    kpis["mot_total"] = int(r["mot_total"])
+
+    # Boites stock
+    r = sql_df("""
+    SELECT
+      SUM(CASE WHEN est_disponible = 1 THEN 1 ELSE 0 END) AS bv_dispo,
+      COUNT(*) AS bv_total
+    FROM v_boites_dispo
+    """).iloc[0]
+    kpis["bv_dispo"] = int(r["bv_dispo"])
+    kpis["bv_total"] = int(r["bv_total"])
+
+    # Moteurs reserves
+    r = sql_df("""
+    SELECT COUNT(*) AS n FROM tbl_moteurs
+    WHERE resa_client_moteur IS NOT NULL AND TRIM(resa_client_moteur) <> ''
+      AND (n_expedition IS NULL) AND (archiver IS NULL OR archiver = false)
+    """).iloc[0]
+    kpis["mot_reserves"] = int(r["n"])
+
+    # Boites reservees
+    r = sql_df("""
+    SELECT COUNT(*) AS n FROM tbl_boites
+    WHERE resa_client_bv IS NOT NULL AND TRIM(resa_client_bv) <> ''
+      AND (vendu IS NULL OR vendu = false) AND stock = true
+    """).iloc[0]
+    kpis["bv_reserves"] = int(r["n"])
+
+    # Ventes moteurs ce mois
+    r = sql_df("""
+    SELECT COUNT(*) AS n, COALESCE(SUM(prix_vente_moteur), 0) AS ca
+    FROM tbl_expeditions_moteurs
+    WHERE date_validation >= date_trunc('month', NOW())
+      AND prix_vente_moteur IS NOT NULL
+    """).iloc[0]
+    kpis["ventes_mois"] = int(r["n"])
+    kpis["ca_mois"] = float(r["ca"])
+
+    # Ventes moteurs mois precedent (pour tendance)
+    r = sql_df("""
+    SELECT COUNT(*) AS n, COALESCE(SUM(prix_vente_moteur), 0) AS ca
+    FROM tbl_expeditions_moteurs
+    WHERE date_validation >= date_trunc('month', NOW()) - INTERVAL '1 month'
+      AND date_validation < date_trunc('month', NOW())
+      AND prix_vente_moteur IS NOT NULL
+    """).iloc[0]
+    kpis["ventes_mois_prec"] = int(r["n"])
+    kpis["ca_mois_prec"] = float(r["ca"])
+
+    # Receptions ce mois
+    r = sql_df("""
+    SELECT COUNT(*) AS n,
+      (SELECT COUNT(*) FROM tbl_moteurs m
+       JOIN tbl_receptions r2 ON r2.n_reception = m.num_reception
+       WHERE r2.date_achat >= date_trunc('month', NOW())) AS nb_mot
+    FROM tbl_receptions
+    WHERE date_achat >= date_trunc('month', NOW())
+    """).iloc[0]
+    kpis["receptions_mois"] = int(r["n"])
+    kpis["mot_recus_mois"] = int(r["nb_mot"])
+
+    # Marge estimee ce mois
+    r = sql_df("""
+    SELECT
+      COALESCE(SUM(em.prix_vente_moteur) - SUM(m.prix_achat_moteur), 0) AS marge,
+      CASE WHEN SUM(em.prix_vente_moteur) > 0
+        THEN ROUND(((SUM(em.prix_vente_moteur) - SUM(m.prix_achat_moteur)) / SUM(em.prix_vente_moteur) * 100)::numeric, 1)
+        ELSE 0 END AS pct
+    FROM tbl_expeditions_moteurs em
+    JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+    WHERE em.date_validation >= date_trunc('month', NOW())
+      AND em.prix_vente_moteur IS NOT NULL AND em.prix_vente_moteur > 0
+      AND m.prix_achat_moteur IS NOT NULL AND m.prix_achat_moteur > 0
+    """).iloc[0]
+    kpis["marge_mois"] = float(r["marge"])
+    kpis["marge_pct"] = float(r["pct"])
+
+    # Prix moyen achat et vente ce mois
+    r = sql_df("""
+    SELECT
+      COALESCE(AVG(em.prix_vente_moteur), 0) AS prix_vente_moy,
+      COALESCE((SELECT AVG(m2.prix_achat_moteur)
+       FROM tbl_moteurs m2
+       JOIN tbl_receptions r2 ON r2.n_reception = m2.num_reception
+       WHERE r2.date_achat >= date_trunc('month', NOW())
+         AND m2.prix_achat_moteur > 0), 0) AS prix_achat_moy
+    FROM tbl_expeditions_moteurs em
+    WHERE em.date_validation >= date_trunc('month', NOW())
+      AND em.prix_vente_moteur > 0
+    """).iloc[0]
+    kpis["prix_vente_moy"] = float(r["prix_vente_moy"])
+    kpis["prix_achat_moy"] = float(r["prix_achat_moy"])
+
+    return kpis
+
+
+# All available KPI definitions for user selection
+KPI_CATALOG = {
+    "mot_dispo":      {"label": "Moteurs en stock",       "color": "success",  "icon": "📦", "fmt": "int"},
+    "bv_dispo":       {"label": "Boites en stock",        "color": "success",  "icon": "⚙️", "fmt": "int"},
+    "mot_reserves":   {"label": "Moteurs reserves",       "color": "warning",  "icon": "🔒", "fmt": "int"},
+    "bv_reserves":    {"label": "Boites reservees",       "color": "warning",  "icon": "🔒", "fmt": "int"},
+    "ventes_mois":    {"label": "Ventes du mois",         "color": "primary",  "icon": "📈", "fmt": "int"},
+    "ca_mois":        {"label": "CA du mois (EUR)",       "color": "primary",  "icon": "💰", "fmt": "money"},
+    "receptions_mois":{"label": "Receptions du mois",     "color": "info",     "icon": "📥", "fmt": "int"},
+    "mot_recus_mois": {"label": "Moteurs recus ce mois",  "color": "info",     "icon": "📥", "fmt": "int"},
+    "marge_mois":     {"label": "Marge du mois (EUR)",    "color": "success",  "icon": "💵", "fmt": "money"},
+    "marge_pct":      {"label": "Marge du mois (%)",      "color": "success",  "icon": "📊", "fmt": "pct"},
+    "prix_vente_moy": {"label": "Prix vente moyen",       "color": "primary",  "icon": "🏷️", "fmt": "money"},
+    "prix_achat_moy": {"label": "Prix achat moyen",       "color": "secondary","icon": "🏷️", "fmt": "money"},
+    "mot_total":      {"label": "Total moteurs (base)",   "color": "secondary","icon": "🗄️", "fmt": "int"},
+    "bv_total":       {"label": "Total boites (base)",    "color": "secondary","icon": "🗄️", "fmt": "int"},
+}
+
+DEFAULT_KPIS = ["mot_dispo", "bv_dispo", "mot_reserves", "ventes_mois", "ca_mois", "marge_mois", "receptions_mois", "marge_pct"]
+
+
+def render_kpi_card(key: str, value, meta: dict):
+    color = COLORS.get(meta["color"], COLORS["primary"])
+    label = meta["label"]
+    fmt = meta["fmt"]
+    if fmt == "money":
+        display = f"{float(value):,.0f}"
+    elif fmt == "pct":
+        display = f"{float(value):.1f}%"
+    else:
+        display = f"{int(value):,}"
+    md_html(f"""
+    <div class='metric-card'>
+        <p style='color:#6b7280;margin:0;font-size:0.8rem;font-weight:600;'>{meta['icon']} {label.upper()}</p>
+        <p style='color:{color};margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{display}</p>
+    </div>
+    """)
 
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -1447,6 +1648,447 @@ def get_code_info() -> pd.DataFrame:
 
 
 # =========================
+# Receptions queries
+# =========================
+@st.cache_data(show_spinner=False, ttl=300)
+def get_receptions_list(limit: int = 200, search: str = "") -> pd.DataFrame:
+    q = """
+    SELECT
+      r.n_reception,
+      f.nom_fournisseur AS fournisseur,
+      r.date_achat,
+      r.montant_ht,
+      r.facture,
+      r.reception_terminee,
+      (SELECT COUNT(*) FROM tbl_moteurs m WHERE m.num_reception = r.n_reception) AS nb_moteurs,
+      (SELECT COUNT(*) FROM tbl_boites b WHERE b.n_reception = r.n_reception) AS nb_boites,
+      (SELECT COUNT(*) FROM tbl_pieces p WHERE p.n_reception = r.n_reception) AS nb_pieces
+    FROM tbl_receptions r
+    LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
+    ORDER BY r.n_reception DESC
+    LIMIT :lim
+    """
+    df = sql_df(q, {"lim": int(limit)})
+    if search and search.strip():
+        s = search.strip().upper()
+        df = df[
+            df["fournisseur"].astype(str).str.upper().str.contains(s, na=False)
+            | df["n_reception"].astype(str).str.contains(s, na=False)
+        ]
+    return df
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_reception_moteurs(n_reception: int) -> pd.DataFrame:
+    q = """
+    SELECT
+      m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
+      m.modele_saisi, m.prix_achat_moteur, m.etat_moteur,
+      m.observations, m.resa_client_moteur, m.date_resa_moteur,
+      CASE WHEN m.n_expedition IS NOT NULL OR m.archiver = true THEN 'Vendu/Archive'
+           WHEN m.resa_client_moteur IS NOT NULL AND TRIM(m.resa_client_moteur) <> '' THEN 'Reserve'
+           ELSE 'Disponible' END AS statut
+    FROM tbl_moteurs m
+    WHERE m.num_reception = :nrec
+    ORDER BY m.n_moteur
+    """
+    return sql_df(q, {"nrec": int(n_reception)})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_reception_boites(n_reception: int) -> pd.DataFrame:
+    q = """
+    SELECT
+      b.n_bv, b.num_interne_bv, b.ref_bv, b.achat_bv,
+      b.observations_bv, b.resa_client_bv, b.date_resa_bv,
+      CASE WHEN b.vendu = true THEN 'Vendu'
+           WHEN b.resa_client_bv IS NOT NULL AND TRIM(b.resa_client_bv) <> '' THEN 'Reserve'
+           WHEN b.stock = true THEN 'Disponible'
+           ELSE 'Indisponible' END AS statut
+    FROM tbl_boites b
+    WHERE b.n_reception = :nrec
+    ORDER BY b.n_bv
+    """
+    return sql_df(q, {"nrec": int(n_reception)})
+
+
+# =========================
+# Motor identification queries
+# =========================
+@st.cache_data(show_spinner=False, ttl=120)
+def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter: str = "", statut_filter: str = "", limit: int = 500) -> pd.DataFrame:
+    q = """
+    SELECT
+      m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
+      m.modele_saisi, m.prix_achat_moteur,
+      m.etat_moteur, m.etat_carter,
+      m.observations,
+      m.resa_client_moteur, m.date_resa_moteur,
+      m.date_modif, m.utilisateur,
+      m.n_expedition, m.archiver,
+      ma.nom_marque AS marque,
+      e.nom_energie AS energie,
+      r.n_reception, r.date_achat,
+      f.nom_fournisseur AS fournisseur,
+      CASE WHEN m.n_expedition IS NOT NULL OR m.archiver = true THEN 'Vendu/Archive'
+           WHEN m.resa_client_moteur IS NOT NULL AND TRIM(m.resa_client_moteur) <> '' THEN 'Reserve'
+           ELSE 'Disponible' END AS statut
+    FROM tbl_moteurs m
+    LEFT JOIN tbl_receptions r ON r.n_reception = m.num_reception
+    LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
+    LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
+    LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    ORDER BY m.n_moteur DESC
+    LIMIT :lim
+    """
+    df = sql_df(q, {"lim": int(limit)})
+    if search and search.strip():
+        s = search.strip().upper()
+        df = df[
+            df["code_moteur"].astype(str).str.upper().str.contains(s, na=False)
+            | df["num_serie"].astype(str).str.upper().str.contains(s, na=False)
+            | df["num_interne_moteur"].astype(str).str.upper().str.contains(s, na=False)
+            | df["modele_saisi"].astype(str).str.upper().str.contains(s, na=False)
+        ]
+    if marque_filter:
+        df = df[df["marque"].astype(str).str.upper().str.contains(marque_filter.upper(), na=False)]
+    if energie_filter:
+        df = df[df["energie"].astype(str).str.upper().str.contains(energie_filter.upper(), na=False)]
+    if statut_filter:
+        df = df[df["statut"] == statut_filter]
+    return df
+
+
+# =========================
+# Gearbox identification queries
+# =========================
+@st.cache_data(show_spinner=False, ttl=120)
+def search_boites_db(search: str = "", statut_filter: str = "", limit: int = 500) -> pd.DataFrame:
+    q = """
+    SELECT
+      b.n_bv, b.num_interne_bv, b.ref_bv, b.num_interne_moteur,
+      b.achat_bv, b.prix_vte_bv,
+      b.observations_bv,
+      b.resa_client_bv, b.date_resa_bv,
+      b.date_modif, b.utilisateur,
+      b.stock, b.vendu,
+      r.n_reception, r.date_achat,
+      f.nom_fournisseur AS fournisseur,
+      emp.nom_emplacement AS emplacement,
+      CASE WHEN b.vendu = true THEN 'Vendu'
+           WHEN b.resa_client_bv IS NOT NULL AND TRIM(b.resa_client_bv) <> '' THEN 'Reserve'
+           WHEN b.stock = true THEN 'Disponible'
+           ELSE 'Indisponible' END AS statut
+    FROM tbl_boites b
+    LEFT JOIN tbl_receptions r ON r.n_reception = b.n_reception
+    LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
+    LEFT JOIN tbl_emplacements emp ON emp.id_emplacement = b.id_emplacement
+    ORDER BY b.n_bv DESC
+    LIMIT :lim
+    """
+    df = sql_df(q, {"lim": int(limit)})
+    if search and search.strip():
+        s = search.strip().upper()
+        df = df[
+            df["ref_bv"].astype(str).str.upper().str.contains(s, na=False)
+            | df["num_interne_bv"].astype(str).str.upper().str.contains(s, na=False)
+            | df["num_interne_moteur"].astype(str).str.upper().str.contains(s, na=False)
+        ]
+    if statut_filter:
+        df = df[df["statut"] == statut_filter]
+    return df
+
+
+# =========================
+# Reservations queries
+# =========================
+@st.cache_data(show_spinner=False, ttl=60)
+def get_moteurs_reserves() -> pd.DataFrame:
+    q = """
+    SELECT
+      m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
+      m.modele_saisi, m.prix_achat_moteur,
+      m.resa_client_moteur, m.date_resa_moteur,
+      m.observations,
+      ma.nom_marque AS marque,
+      e.nom_energie AS energie
+    FROM tbl_moteurs m
+    LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
+    LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    WHERE m.resa_client_moteur IS NOT NULL
+      AND TRIM(m.resa_client_moteur) <> ''
+      AND (m.n_expedition IS NULL)
+      AND (m.archiver IS NULL OR m.archiver = false)
+    ORDER BY m.date_resa_moteur DESC NULLS LAST
+    """
+    return sql_df(q)
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def get_boites_reservees() -> pd.DataFrame:
+    q = """
+    SELECT
+      b.n_bv, b.num_interne_bv, b.ref_bv,
+      b.achat_bv, b.prix_vte_bv,
+      b.resa_client_bv, b.date_resa_bv,
+      b.observations_bv,
+      emp.nom_emplacement AS emplacement
+    FROM tbl_boites b
+    LEFT JOIN tbl_emplacements emp ON emp.id_emplacement = b.id_emplacement
+    WHERE b.resa_client_bv IS NOT NULL
+      AND TRIM(b.resa_client_bv) <> ''
+      AND (b.vendu IS NULL OR b.vendu = false)
+      AND b.stock = true
+    ORDER BY b.date_resa_bv DESC NULLS LAST
+    """
+    return sql_df(q)
+
+
+def reserve_moteur(n_moteur: int, client: str):
+    exec_sql("""
+    UPDATE tbl_moteurs
+    SET resa_client_moteur = :client, date_resa_moteur = NOW()
+    WHERE n_moteur = :nm
+    """, {"nm": int(n_moteur), "client": client.strip()})
+    st.cache_data.clear()
+
+
+def cancel_reservation_moteur(n_moteur: int):
+    exec_sql("""
+    UPDATE tbl_moteurs
+    SET resa_client_moteur = NULL, date_resa_moteur = NULL
+    WHERE n_moteur = :nm
+    """, {"nm": int(n_moteur)})
+    st.cache_data.clear()
+
+
+def reserve_boite(n_bv: int, client: str):
+    exec_sql("""
+    UPDATE tbl_boites
+    SET resa_client_bv = :client, date_resa_bv = NOW()
+    WHERE n_bv = :nb
+    """, {"nb": int(n_bv), "client": client.strip()})
+    st.cache_data.clear()
+
+
+def cancel_reservation_boite(n_bv: int):
+    exec_sql("""
+    UPDATE tbl_boites
+    SET resa_client_bv = NULL, date_resa_bv = NULL
+    WHERE n_bv = :nb
+    """, {"nb": int(n_bv)})
+    st.cache_data.clear()
+
+
+# =========================
+# History queries
+# =========================
+@st.cache_data(show_spinner=False, ttl=300)
+def get_historique_receptions(n_months: int = 12) -> pd.DataFrame:
+    q = """
+    SELECT
+      r.n_reception,
+      f.nom_fournisseur AS fournisseur,
+      r.date_achat,
+      r.montant_ht,
+      (SELECT COUNT(*) FROM tbl_moteurs m WHERE m.num_reception = r.n_reception) AS nb_moteurs,
+      (SELECT COUNT(*) FROM tbl_boites b WHERE b.n_reception = r.n_reception) AS nb_boites
+    FROM tbl_receptions r
+    LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
+    WHERE r.date_achat >= NOW() - make_interval(months => :months)
+    ORDER BY r.date_achat DESC
+    """
+    return sql_df(q, {"months": int(n_months)})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_historique_expeditions(n_months: int = 12) -> pd.DataFrame:
+    q = """
+    SELECT
+      e.n_expedition,
+      c.societe AS client,
+      e.date_chargement,
+      e.montant_ht,
+      e.type_container,
+      e.ref_container,
+      e.expedition_terminee,
+      (SELECT COUNT(*) FROM tbl_expeditions_moteurs em WHERE em.n_expedition = e.n_expedition) AS nb_moteurs,
+      (SELECT COUNT(*) FROM tbl_expeditions_boites eb WHERE eb.n_expedition = e.n_expedition) AS nb_boites
+    FROM tbl_expeditions e
+    LEFT JOIN tbl_clients c ON c.n_client = e.n_client
+    WHERE e.date_chargement >= NOW() - make_interval(months => :months)
+    ORDER BY e.date_chargement DESC
+    """
+    return sql_df(q, {"months": int(n_months)})
+
+
+# =========================
+# Additional statistics queries
+# =========================
+@st.cache_data(show_spinner=False, ttl=300)
+def get_ca_par_mois(n_months: int = 12) -> pd.DataFrame:
+    q = """
+    SELECT
+      to_char(em.date_validation, 'YYYY-MM') AS mois,
+      SUM(em.prix_vente_moteur) AS ca_moteurs,
+      COUNT(*) AS nb_moteurs_vendus
+    FROM tbl_expeditions_moteurs em
+    WHERE em.date_validation >= NOW() - make_interval(months => :months)
+      AND em.prix_vente_moteur IS NOT NULL
+    GROUP BY mois
+    ORDER BY mois
+    """
+    return sql_df(q, {"months": int(n_months)})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_top_clients(n_months: int = 12, limit: int = 15) -> pd.DataFrame:
+    q = """
+    SELECT
+      c.societe AS client,
+      COUNT(DISTINCT e.n_expedition) AS nb_expeditions,
+      SUM(e.montant_ht) AS total_ht,
+      COUNT(DISTINCT em.n_moteur) AS nb_moteurs
+    FROM tbl_expeditions e
+    JOIN tbl_clients c ON c.n_client = e.n_client
+    LEFT JOIN tbl_expeditions_moteurs em ON em.n_expedition = e.n_expedition
+    WHERE e.date_chargement >= NOW() - make_interval(months => :months)
+    GROUP BY c.societe
+    ORDER BY total_ht DESC NULLS LAST
+    LIMIT :lim
+    """
+    return sql_df(q, {"months": int(n_months), "lim": int(limit)})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_top_fournisseurs(n_months: int = 12, limit: int = 15) -> pd.DataFrame:
+    q = """
+    SELECT
+      f.nom_fournisseur AS fournisseur,
+      COUNT(DISTINCT r.n_reception) AS nb_receptions,
+      SUM(r.montant_ht) AS total_ht,
+      COUNT(DISTINCT m.n_moteur) AS nb_moteurs
+    FROM tbl_receptions r
+    JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
+    LEFT JOIN tbl_moteurs m ON m.num_reception = r.n_reception
+    WHERE r.date_achat >= NOW() - make_interval(months => :months)
+    GROUP BY f.nom_fournisseur
+    ORDER BY total_ht DESC NULLS LAST
+    LIMIT :lim
+    """
+    return sql_df(q, {"months": int(n_months), "lim": int(limit)})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_marge_estimee(n_months: int = 12) -> pd.DataFrame:
+    q = """
+    SELECT
+      to_char(em.date_validation, 'YYYY-MM') AS mois,
+      SUM(em.prix_vente_moteur) AS total_vente,
+      SUM(m.prix_achat_moteur) AS total_achat,
+      SUM(em.prix_vente_moteur) - SUM(m.prix_achat_moteur) AS marge,
+      CASE WHEN SUM(em.prix_vente_moteur) > 0
+           THEN ROUND(((SUM(em.prix_vente_moteur) - SUM(m.prix_achat_moteur)) / SUM(em.prix_vente_moteur) * 100)::numeric, 1)
+           ELSE 0 END AS pct_marge
+    FROM tbl_expeditions_moteurs em
+    JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+    WHERE em.date_validation >= NOW() - make_interval(months => :months)
+      AND em.prix_vente_moteur IS NOT NULL AND em.prix_vente_moteur > 0
+      AND m.prix_achat_moteur IS NOT NULL AND m.prix_achat_moteur > 0
+    GROUP BY mois
+    ORDER BY mois
+    """
+    return sql_df(q, {"months": int(n_months)})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_stock_dispo_breakdown_boites() -> pd.DataFrame:
+    return sql_df("""
+    SELECT
+      COALESCE(tb.ref_bv, 'N/A') AS marque,
+      '' AS energie,
+      COUNT(*) AS n
+    FROM v_boites_dispo tb
+    WHERE est_disponible = 1
+    GROUP BY tb.ref_bv
+    """)
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_rotation_stock(n_months: int = 6) -> pd.DataFrame:
+    q = """
+    WITH stock AS (
+      SELECT UPPER(code_moteur) AS code_moteur, COUNT(*) AS nb_stock
+      FROM v_moteurs_dispo
+      WHERE est_disponible = 1
+        AND code_moteur IS NOT NULL AND TRIM(code_moteur) <> ''
+      GROUP BY UPPER(code_moteur)
+    ),
+    ventes AS (
+      SELECT UPPER(m.code_moteur) AS code_moteur, COUNT(*) AS nb_vendus
+      FROM tbl_expeditions_moteurs em
+      JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+      WHERE em.date_validation >= NOW() - make_interval(months => :months)
+        AND m.code_moteur IS NOT NULL AND TRIM(m.code_moteur) <> ''
+      GROUP BY UPPER(m.code_moteur)
+    )
+    SELECT
+      s.code_moteur,
+      s.nb_stock,
+      COALESCE(v.nb_vendus, 0) AS nb_vendus,
+      CASE WHEN COALESCE(v.nb_vendus, 0) = 0 THEN 999
+           ELSE ROUND((s.nb_stock::numeric / v.nb_vendus * :months), 1)
+      END AS mois_rotation
+    FROM stock s
+    LEFT JOIN ventes v ON v.code_moteur = s.code_moteur
+    WHERE s.nb_stock > 0
+    ORDER BY mois_rotation DESC
+    LIMIT 50
+    """
+    return sql_df(q, {"months": int(n_months)})
+
+
+# =========================
+# Pieces detachees (Supabase)
+# =========================
+
+@st.cache_data(show_spinner=False, ttl=120)
+def load_all_pieces_stock() -> pd.DataFrame:
+    """Load all spare parts stock from Supabase tbl_pieces_detachees."""
+    q = """
+    SELECT categorie, marque, reference, modele, stock
+    FROM tbl_pieces_detachees
+    ORDER BY categorie, reference
+    """
+    df = sql_df(q)
+    if df.empty:
+        return pd.DataFrame(columns=["categorie", "marque", "reference", "modele", "stock"])
+    df["stock"] = pd.to_numeric(df["stock"], errors="coerce").fillna(0).astype(int)
+    return df
+
+
+@st.cache_data(show_spinner=False, ttl=120)
+def load_pieces_mouvements(categorie: str, reference: str) -> pd.DataFrame:
+    """Get movement history for a specific part from Supabase tbl_pieces_mouvements."""
+    reference = (reference or "").strip()
+    if not reference:
+        return pd.DataFrame(columns=["date", "quantite", "client"])
+    q = """
+    SELECT date_mouvement AS date, quantite, client
+    FROM tbl_pieces_mouvements
+    WHERE UPPER(reference) = UPPER(:ref)
+      AND categorie = :cat
+    ORDER BY date_mouvement
+    """
+    df = sql_df(q, {"ref": reference, "cat": categorie})
+    if df.empty:
+        return pd.DataFrame(columns=["date", "quantite", "client"])
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    return df
+
+
+# =========================
 # Pages avec Plotly
 # =========================
 def piece_selector(key: str = "piece_type") -> str:
@@ -1550,21 +2192,6 @@ def render_besoins():
     topn = st.slider("Nombre de besoins affichés", min_value=10, max_value=200, value=50, step=10)
     if piece == "moteurs":
         besoins = get_besoins_moteurs(topn)
-        # AJOUTE CE CODE DE DEBUG :
-        st.write("### 🔍 DEBUG - Colonnes disponibles :")
-        st.write(list(besoins.columns))
-
-        st.write("### 🔍 DEBUG - Premières lignes :")
-        st.dataframe(besoins.head(3))
-
-        st.write("### 🔍 DEBUG - Exemple de valeurs :")
-        if not besoins.empty:
-            premier = besoins.iloc[0]
-            st.write(f"Code moteur: {premier.get('code_moteur')}")
-            st.write(f"Marque: {premier.get('marque')}")
-            st.write(f"Energie: {premier.get('energie')}")
-            st.write(f"Type nom: {premier.get('type_nom')}")
-            st.write(f"Type modele: {premier.get('type_modele')}")
     else:
         besoins = get_besoins_boites(topn)
 
@@ -1747,38 +2374,72 @@ def render_casse():
     md_html("""
     <div class='plaque-card'>
         <div style='text-align: center; margin-bottom: 1.5rem;'>
-            <h2 style='margin: 0 0 0.5rem 0; color: #111827;'>🚗 Recherche par Plaque</h2>
+            <h2 style='margin: 0 0 0.5rem 0; color: #111827;'>Recherche par Plaque</h2>
             <p style='margin: 0; color: #6b7280; font-size: 0.95rem;'>
                 Identifiez instantanément le moteur et son niveau d'urgence
+            </p>
+            <p style='margin: 0.5rem 0 0 0; color: #C41E3A; font-size: 0.85rem; font-weight: 600;'>
+                Integration API 3A prevue prochainement pour identification automatique
             </p>
         </div>
     </div>
     """)
 
-    # Champ de saisie de la plaque
-    plaque_input = st.text_input(
-        "Numéro de plaque",
-        key="plaque_search",
-        placeholder="Ex: AB-123-CD ou AB123CD",
-        label_visibility="collapsed",
-    )
+    # Champ de saisie de la plaque - plus visible
+    col_plaque_in, col_plaque_btn = st.columns([4, 1])
+    with col_plaque_in:
+        md_html("""
+        <style>
+        div[data-testid="stTextInput"][data-st-key="plaque_search"] input {
+            font-size: 1.5rem !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.15rem !important;
+            padding: 1rem 1.2rem !important;
+            text-align: center !important;
+            border: 3px solid #C41E3A !important;
+            border-radius: 12px !important;
+        }
+        div[data-testid="stTextInput"][data-st-key="plaque_search"] input:focus {
+            border-color: #8B1A2B !important;
+            box-shadow: 0 0 0 4px rgba(196, 30, 58, 0.15) !important;
+        }
+        </style>
+        """)
+        plaque_input = st.text_input(
+            "Numero de plaque",
+            key="plaque_search",
+            placeholder="AB-123-CD",
+            label_visibility="collapsed",
+        )
+    with col_plaque_btn:
+        md_html("<div style='height: 0.5rem;'></div>")
+        if st.button("Effacer", key="clear_plaque", use_container_width=True):
+            st.session_state["plaque_search"] = ""
+            st.rerun()
 
     # Initialiser la variable plaque_data
     plaque_data = None
 
     # Si une plaque est saisie
     if plaque_input and plaque_input.strip():
+        with st.spinner("Recherche en cours..."):
+            pass  # Visual searching state
         plaque_df = search_plaque(plaque_input.strip())
 
         if not plaque_df.empty:
             plaque_data = plaque_df.iloc[0].to_dict()
 
-            # Affichage visuel de la plaque style immatriculation française
+            # Affichage visuel de la plaque style immatriculation francaise
             plaque_display = plaque_data.get("plaque", "").upper()
             md_html(f"""
             <div style='text-align: center; margin: 2rem 0;'>
-                <div class='plaque-visual'>
-                    🇫🇷 {plaque_display}
+                <div style='display:inline-block;background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);
+                     border:5px solid #1e3a8a;border-radius:10px;padding:1.2rem 2rem;
+                     font-family:Courier New,monospace;font-size:2.5rem;font-weight:900;
+                     color:white;letter-spacing:0.4rem;
+                     box-shadow:0 6px 12px rgba(0,0,0,0.25),inset 0 2px 4px rgba(255,255,255,0.2);'>
+                    {plaque_display}
                 </div>
             </div>
             """)
@@ -1938,7 +2599,7 @@ def render_casse():
         <div style='display:flex;justify-content:space-between;align-items:center;gap:12px;'>
             <div style='display:flex;align-items:center;gap:10px;'>
             <span style='font-family:monospace;font-weight:900;font-size:20px;
-                        background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+                        background:linear-gradient(135deg,#C41E3A 0%,#8B1A2B 100%);
                         color:white;padding:8px 12px;border-radius:10px;'>{code}</span>
             <span style='background:{urgence_bg};color:{border_color};padding:6px 10px;border-radius:10px;
                         font-weight:700;font-size:12px;'>{urgence_label}</span>
@@ -2018,7 +2679,7 @@ def render_casse():
                 )
                 st.session_state[f"modal_open_{idx}"] = False
                 st.success(f"✅ {code} enregistré !")
-                st.balloons()
+
                 st.rerun()
 
             st.divider()
@@ -2048,7 +2709,7 @@ def render_casse():
                     )
                     st.session_state[f"modal_open_{idx}"] = False
                     st.success("✅ Proposition envoyée !")
-                    st.balloons()
+    
                     st.rerun()
 
     st.divider()
@@ -2089,7 +2750,7 @@ def render_casse():
                     audio_path=None,
                 )
                 st.success("✅ Moteur envoyé !")
-                st.balloons()
+
                 st.rerun()
 
 
@@ -2271,6 +2932,583 @@ def render_analyse():
             st.markdown("#### Offres libres")
             df_free = get_recent_free_offers(limit=200)
             st.dataframe(df_free, use_container_width=True, height=400)
+
+
+# =========================
+# Render: Receptions
+# =========================
+def render_receptions():
+    if st.button("Retour a l'accueil", use_container_width=False, key="back_receptions"):
+        set_page("home")
+        st.rerun()
+
+    st.markdown("## 📥 Gestion des Receptions")
+
+    col_s1, col_s2 = st.columns([2, 1])
+    with col_s1:
+        search = st.text_input("Rechercher (N reception, fournisseur)", key="rec_search", placeholder="Ex: 1234 ou DUPONT")
+    with col_s2:
+        limit = st.selectbox("Nb max", [50, 100, 200, 500], index=1, key="rec_limit")
+
+    receptions = get_receptions_list(limit=limit, search=search)
+
+    if receptions.empty:
+        st.info("Aucune reception trouvee.")
+        return
+
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>RECEPTIONS</p>"
+                f"<p style='color:#C41E3A;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{len(receptions)}</p></div>")
+    with k2:
+        total_moteurs = int(receptions["nb_moteurs"].sum())
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>MOTEURS RECUS</p>"
+                f"<p style='color:#10b981;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{total_moteurs:,}</p></div>")
+    with k3:
+        total_boites = int(receptions["nb_boites"].sum())
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>BOITES RECUES</p>"
+                f"<p style='color:#3b82f6;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{total_boites:,}</p></div>")
+    with k4:
+        total_ht = receptions["montant_ht"].sum()
+        total_ht_val = float(total_ht) if pd.notna(total_ht) else 0
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>MONTANT TOTAL HT</p>"
+                f"<p style='color:#f59e0b;margin:0.5rem 0 0 0;font-size:1.5rem;font-weight:700;'>{total_ht_val:,.0f} EUR</p></div>")
+
+    md_html("<br>")
+    st.dataframe(receptions, use_container_width=True, height=400)
+
+    st.markdown("---")
+    st.markdown("### Detail d'une reception")
+    rec_ids = sorted(receptions["n_reception"].tolist(), reverse=True)
+    sel_rec = st.selectbox("Selectionner une reception", rec_ids, key="rec_detail_id")
+
+    if sel_rec:
+        tab_m, tab_b = st.tabs(["Moteurs recus", "Boites recues"])
+        with tab_m:
+            moteurs = get_reception_moteurs(sel_rec)
+            if moteurs.empty:
+                st.info("Aucun moteur dans cette reception.")
+            else:
+                st.dataframe(moteurs, use_container_width=True, height=300)
+        with tab_b:
+            boites = get_reception_boites(sel_rec)
+            if boites.empty:
+                st.info("Aucune boite dans cette reception.")
+            else:
+                st.dataframe(boites, use_container_width=True, height=300)
+
+
+# =========================
+# Render: Motor Identification
+# =========================
+def render_identification_moteurs():
+    if st.button("Retour a l'accueil", use_container_width=False, key="back_id_moteurs"):
+        set_page("home")
+        st.rerun()
+
+    st.markdown("## ⚙️ Identification Moteurs")
+
+    col_s1, col_s2, col_s3, col_s4 = st.columns([3, 1, 1, 1])
+    with col_s1:
+        search = st.text_input("Recherche (code, num serie, num interne, modele)", key="mot_search", placeholder="Ex: K9K ou 12345")
+    with col_s2:
+        statut = st.selectbox("Statut", ["Tous", "Disponible", "Reserve", "Vendu/Archive"], key="mot_statut")
+    with col_s3:
+        marque_f = st.text_input("Marque", key="mot_marque", placeholder="Ex: RENAULT")
+    with col_s4:
+        energie_f = st.text_input("Energie", key="mot_energie", placeholder="Ex: DIESEL")
+
+    statut_f = "" if statut == "Tous" else statut
+    moteurs = search_moteurs_db(search=search, marque_filter=marque_f, energie_filter=energie_f, statut_filter=statut_f, limit=1000)
+
+    if moteurs.empty:
+        st.info("Aucun moteur trouve.")
+        return
+
+    k1, k2, k3, k4 = st.columns(4)
+    nb_dispo = int((moteurs["statut"] == "Disponible").sum())
+    nb_resa = int((moteurs["statut"] == "Reserve").sum())
+    nb_vendus = int((moteurs["statut"] == "Vendu/Archive").sum())
+    with k1:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>RESULTATS</p>"
+                f"<p style='color:#C41E3A;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{len(moteurs)}</p></div>")
+    with k2:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>DISPONIBLES</p>"
+                f"<p style='color:#10b981;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{nb_dispo}</p></div>")
+    with k3:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>RESERVES</p>"
+                f"<p style='color:#f59e0b;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{nb_resa}</p></div>")
+    with k4:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>VENDUS</p>"
+                f"<p style='color:#ef4444;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{nb_vendus}</p></div>")
+
+    md_html("<br>")
+
+    display_cols = ["n_moteur", "num_interne_moteur", "code_moteur", "num_serie", "modele_saisi",
+                    "marque", "energie", "prix_achat_moteur", "statut", "resa_client_moteur", "fournisseur", "date_achat"]
+    display_cols = [c for c in display_cols if c in moteurs.columns]
+    st.dataframe(moteurs[display_cols], use_container_width=True, height=420)
+
+    st.markdown("---")
+    st.markdown("### Reserver un moteur")
+    col_r1, col_r2, col_r3 = st.columns([1, 2, 1])
+    with col_r1:
+        dispo_ids = sorted(moteurs[moteurs["statut"] == "Disponible"]["n_moteur"].tolist())
+        if dispo_ids:
+            sel_mot = st.selectbox("N moteur", dispo_ids, key="resa_mot_id")
+        else:
+            st.info("Aucun moteur disponible.")
+            sel_mot = None
+    with col_r2:
+        client_resa = st.text_input("Nom du client", key="resa_mot_client", placeholder="Ex: SOCIETE DUPONT")
+    with col_r3:
+        if sel_mot and client_resa and client_resa.strip():
+            if st.button("Reserver", key="btn_resa_mot", use_container_width=True):
+                reserve_moteur(sel_mot, client_resa)
+                st.success(f"Moteur {sel_mot} reserve pour {client_resa}")
+                st.rerun()
+
+
+# =========================
+# Render: Gearbox Identification
+# =========================
+def render_identification_boites():
+    if st.button("Retour a l'accueil", use_container_width=False, key="back_id_boites"):
+        set_page("home")
+        st.rerun()
+
+    st.markdown("## ⚙️ Identification Boites de vitesses")
+
+    col_s1, col_s2 = st.columns([3, 1])
+    with col_s1:
+        search = st.text_input("Recherche (ref, num interne, num moteur associe)", key="bv_search", placeholder="Ex: JR5 ou BV-123")
+    with col_s2:
+        statut = st.selectbox("Statut", ["Tous", "Disponible", "Reserve", "Vendu"], key="bv_statut")
+
+    statut_f = "" if statut == "Tous" else statut
+    boites = search_boites_db(search=search, statut_filter=statut_f, limit=1000)
+
+    if boites.empty:
+        st.info("Aucune boite trouvee.")
+        return
+
+    k1, k2, k3, k4 = st.columns(4)
+    nb_dispo = int((boites["statut"] == "Disponible").sum())
+    nb_resa = int((boites["statut"] == "Reserve").sum())
+    nb_vendus = int((boites["statut"] == "Vendu").sum())
+    with k1:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>RESULTATS</p>"
+                f"<p style='color:#C41E3A;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{len(boites)}</p></div>")
+    with k2:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>DISPONIBLES</p>"
+                f"<p style='color:#10b981;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{nb_dispo}</p></div>")
+    with k3:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>RESERVEES</p>"
+                f"<p style='color:#f59e0b;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{nb_resa}</p></div>")
+    with k4:
+        md_html(f"<div class='metric-card'><p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>VENDUES</p>"
+                f"<p style='color:#ef4444;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{nb_vendus}</p></div>")
+
+    md_html("<br>")
+
+    display_cols = ["n_bv", "num_interne_bv", "ref_bv", "num_interne_moteur",
+                    "achat_bv", "prix_vte_bv", "statut", "resa_client_bv", "emplacement", "fournisseur", "date_achat"]
+    display_cols = [c for c in display_cols if c in boites.columns]
+    st.dataframe(boites[display_cols], use_container_width=True, height=420)
+
+    st.markdown("---")
+    st.markdown("### Reserver une boite")
+    col_r1, col_r2, col_r3 = st.columns([1, 2, 1])
+    with col_r1:
+        dispo_ids = sorted(boites[boites["statut"] == "Disponible"]["n_bv"].tolist())
+        if dispo_ids:
+            sel_bv = st.selectbox("N boite", dispo_ids, key="resa_bv_id")
+        else:
+            st.info("Aucune boite disponible.")
+            sel_bv = None
+    with col_r2:
+        client_resa = st.text_input("Nom du client", key="resa_bv_client", placeholder="Ex: SOCIETE DUPONT")
+    with col_r3:
+        if sel_bv and client_resa and client_resa.strip():
+            if st.button("Reserver", key="btn_resa_bv", use_container_width=True):
+                reserve_boite(sel_bv, client_resa)
+                st.success(f"Boite {sel_bv} reservee pour {client_resa}")
+                st.rerun()
+
+
+# =========================
+# Render: Reservations
+# =========================
+def render_reservations():
+    if st.button("Retour a l'accueil", use_container_width=False, key="back_resa"):
+        set_page("home")
+        st.rerun()
+
+    st.markdown("## 📋 Reservations clients")
+
+    tab_m, tab_b = st.tabs(["Moteurs reserves", "Boites reservees"])
+
+    with tab_m:
+        moteurs = get_moteurs_reserves()
+        if moteurs.empty:
+            st.info("Aucun moteur reserve actuellement.")
+        else:
+            st.markdown(f"**{len(moteurs)} moteur(s) reserve(s)**")
+            st.dataframe(moteurs, use_container_width=True, height=400)
+
+            st.markdown("#### Annuler une reservation")
+            sel_cancel = st.selectbox("N moteur a liberer", moteurs["n_moteur"].tolist(), key="cancel_mot_id")
+            if st.button("Annuler la reservation", key="btn_cancel_mot"):
+                cancel_reservation_moteur(sel_cancel)
+                st.success(f"Reservation du moteur {sel_cancel} annulee.")
+                st.rerun()
+
+    with tab_b:
+        boites = get_boites_reservees()
+        if boites.empty:
+            st.info("Aucune boite reservee actuellement.")
+        else:
+            st.markdown(f"**{len(boites)} boite(s) reservee(s)**")
+            st.dataframe(boites, use_container_width=True, height=400)
+
+            st.markdown("#### Annuler une reservation")
+            sel_cancel = st.selectbox("N boite a liberer", boites["n_bv"].tolist(), key="cancel_bv_id")
+            if st.button("Annuler la reservation", key="btn_cancel_bv"):
+                cancel_reservation_boite(sel_cancel)
+                st.success(f"Reservation de la boite {sel_cancel} annulee.")
+                st.rerun()
+
+
+# =========================
+# Render: History
+# =========================
+def render_historique():
+    if st.button("Retour a l'accueil", use_container_width=False, key="back_histo"):
+        set_page("home")
+        st.rerun()
+
+    st.markdown("## 📜 Historique")
+    n_months = st.slider("Periode (mois)", 1, 36, 12, key="histo_months")
+
+    tab_r, tab_e, tab_s = st.tabs(["Receptions", "Expeditions", "Statistiques avancees"])
+
+    with tab_r:
+        st.markdown("### Historique des receptions")
+        receptions = get_historique_receptions(n_months)
+        if receptions.empty:
+            st.info("Aucune reception sur cette periode.")
+        else:
+            if "date_achat" in receptions.columns:
+                receptions["mois"] = pd.to_datetime(receptions["date_achat"], errors="coerce").dt.to_period("M").astype(str)
+                monthly = receptions.groupby("mois").agg(
+                    nb_receptions=("n_reception", "count"),
+                    total_ht=("montant_ht", "sum"),
+                    total_moteurs=("nb_moteurs", "sum")
+                ).reset_index()
+
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    fig = px.bar(monthly, x="mois", y="nb_receptions", title="Receptions par mois",
+                                 labels={"mois": "Mois", "nb_receptions": "Nb receptions"})
+                    fig.update_traces(marker_color=COLORS["primary"])
+                    fig.update_layout(template="plotly_white")
+                    st.plotly_chart(fig, use_container_width=True)
+                with col_c2:
+                    fig = px.bar(monthly, x="mois", y="total_moteurs", title="Moteurs recus par mois",
+                                 labels={"mois": "Mois", "total_moteurs": "Nb moteurs"})
+                    fig.update_traces(marker_color=COLORS["success"])
+                    fig.update_layout(template="plotly_white")
+                    st.plotly_chart(fig, use_container_width=True)
+
+            st.dataframe(receptions.drop(columns=["mois"], errors="ignore"), use_container_width=True, height=350)
+
+    with tab_e:
+        st.markdown("### Historique des expeditions")
+        expeditions = get_historique_expeditions(n_months)
+        if expeditions.empty:
+            st.info("Aucune expedition sur cette periode.")
+        else:
+            if "date_chargement" in expeditions.columns:
+                expeditions["mois"] = pd.to_datetime(expeditions["date_chargement"], errors="coerce").dt.to_period("M").astype(str)
+                monthly = expeditions.groupby("mois").agg(
+                    nb_expeditions=("n_expedition", "count"),
+                    total_ht=("montant_ht", "sum"),
+                    total_moteurs=("nb_moteurs", "sum")
+                ).reset_index()
+
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    fig = px.bar(monthly, x="mois", y="nb_expeditions", title="Expeditions par mois",
+                                 labels={"mois": "Mois", "nb_expeditions": "Nb expeditions"})
+                    fig.update_traces(marker_color=COLORS["info"])
+                    fig.update_layout(template="plotly_white")
+                    st.plotly_chart(fig, use_container_width=True)
+                with col_c2:
+                    fig = px.bar(monthly, x="mois", y="total_moteurs", title="Moteurs expedies par mois",
+                                 labels={"mois": "Mois", "total_moteurs": "Nb moteurs"})
+                    fig.update_traces(marker_color=COLORS["warning"])
+                    fig.update_layout(template="plotly_white")
+                    st.plotly_chart(fig, use_container_width=True)
+
+            st.dataframe(expeditions.drop(columns=["mois"], errors="ignore"), use_container_width=True, height=350)
+
+    with tab_s:
+        st.markdown("### Statistiques avancees")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### Chiffre d'affaires moteurs")
+            ca = get_ca_par_mois(n_months)
+            if not ca.empty:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=ca["mois"], y=ca["ca_moteurs"], name="CA moteurs",
+                                     marker_color=COLORS["primary"]))
+                fig.add_trace(go.Scatter(x=ca["mois"], y=ca["nb_moteurs_vendus"], name="Nb vendus",
+                                         yaxis="y2", mode="lines+markers",
+                                         line=dict(color=COLORS["success"], width=2)))
+                fig.update_layout(
+                    title="CA et volume par mois",
+                    yaxis=dict(title="CA (EUR)"),
+                    yaxis2=dict(title="Nb vendus", overlaying="y", side="right"),
+                    template="plotly_white"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("#### Top clients")
+            clients = get_top_clients(n_months)
+            if not clients.empty:
+                fig = px.bar(clients.head(10), x="client", y="total_ht", title="Top 10 clients par CA",
+                             labels={"client": "Client", "total_ht": "CA HT (EUR)"})
+                fig.update_traces(marker_color=COLORS["primary"])
+                fig.update_layout(template="plotly_white")
+                st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(clients, use_container_width=True, height=250)
+
+        with col2:
+            st.markdown("#### Marge estimee")
+            marge = get_marge_estimee(n_months)
+            if not marge.empty:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=marge["mois"], y=marge["marge"], name="Marge EUR",
+                                     marker_color=COLORS["success"]))
+                fig.add_trace(go.Scatter(x=marge["mois"], y=marge["pct_marge"], name="% Marge",
+                                         yaxis="y2", mode="lines+markers",
+                                         line=dict(color=COLORS["warning"], width=2)))
+                fig.update_layout(
+                    title="Marge estimee par mois",
+                    yaxis=dict(title="Marge (EUR)"),
+                    yaxis2=dict(title="% Marge", overlaying="y", side="right"),
+                    template="plotly_white"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.markdown("#### Top fournisseurs")
+            fournisseurs = get_top_fournisseurs(n_months)
+            if not fournisseurs.empty:
+                fig = px.bar(fournisseurs.head(10), x="fournisseur", y="total_ht", title="Top 10 fournisseurs",
+                             labels={"fournisseur": "Fournisseur", "total_ht": "Montant HT (EUR)"})
+                fig.update_traces(marker_color=COLORS["info"])
+                fig.update_layout(template="plotly_white")
+                st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(fournisseurs, use_container_width=True, height=250)
+
+        st.markdown("---")
+        st.markdown("#### Rotation de stock")
+        rotation = get_rotation_stock(n_months)
+        if not rotation.empty:
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                st.markdown("##### Stock a rotation lente (surstocke)")
+                slow = rotation[rotation["mois_rotation"] >= 6].head(20)
+                if not slow.empty:
+                    fig = px.bar(slow, x="code_moteur", y="mois_rotation", title="Codes a rotation lente",
+                                 labels={"code_moteur": "Code", "mois_rotation": "Mois pour ecouler"}, color="nb_stock")
+                    fig.update_layout(template="plotly_white")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Aucun code en surstock.")
+            with col_r2:
+                st.markdown("##### Stock a rotation rapide")
+                fast = rotation[rotation["mois_rotation"] < 6].sort_values("mois_rotation").head(20)
+                if not fast.empty:
+                    fig = px.bar(fast, x="code_moteur", y="mois_rotation", title="Codes a rotation rapide",
+                                 labels={"code_moteur": "Code", "mois_rotation": "Mois pour ecouler"}, color="nb_vendus")
+                    fig.update_layout(template="plotly_white")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Aucun code a rotation rapide.")
+            st.dataframe(rotation, use_container_width=True, height=300)
+
+
+# =========================
+# Render: Pieces Detachees
+# =========================
+def render_pieces_detachees():
+    if st.button("Retour a l'accueil", use_container_width=False, key="back_pieces"):
+        set_page("home")
+        st.rerun()
+
+    st.markdown("## Pieces Detachees - Stock")
+
+    pieces = load_all_pieces_stock()
+
+    if pieces.empty:
+        st.warning("Aucune donnee de pieces detachees trouvee dans Supabase.")
+        st.info("Lancez le script **Transfert_supabase.py** pour importer les fichiers Excel de stock dans la base de donnees.")
+        return
+
+    # --- KPIs ---
+    total_refs = len(pieces)
+    total_stock = int(pieces["stock"].sum())
+    n_categories = pieces["categorie"].nunique()
+    zero_stock = int((pieces["stock"] == 0).sum())
+
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        md_html(f"""
+        <div class='metric-card'>
+            <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>REFERENCES</p>
+            <p style='color:#C41E3A;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{total_refs:,}</p>
+        </div>
+        """)
+    with k2:
+        md_html(f"""
+        <div class='metric-card'>
+            <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>STOCK TOTAL</p>
+            <p style='color:#10b981;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{total_stock:,}</p>
+        </div>
+        """)
+    with k3:
+        md_html(f"""
+        <div class='metric-card'>
+            <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>CATEGORIES</p>
+            <p style='color:#3b82f6;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{n_categories}</p>
+        </div>
+        """)
+    with k4:
+        md_html(f"""
+        <div class='metric-card'>
+            <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>STOCK = 0</p>
+            <p style='color:#ef4444;margin:0.5rem 0 0 0;font-size:2rem;font-weight:700;'>{zero_stock:,}</p>
+        </div>
+        """)
+
+    md_html("<br>")
+
+    # --- Filters ---
+    col_f1, col_f2 = st.columns([1, 2])
+    with col_f1:
+        cats = sorted(pieces["categorie"].dropna().unique().tolist())
+        sel_cats = st.multiselect("Filtrer par categorie", cats, default=cats, key="pieces_cats")
+    with col_f2:
+        search_txt = st.text_input("Recherche reference / marque", key="pieces_search", placeholder="Ex: 1234 ou RENAULT")
+
+    filtered = pieces.copy()
+    if sel_cats:
+        filtered = filtered[filtered["categorie"].isin(sel_cats)]
+    if search_txt and search_txt.strip():
+        s = search_txt.strip().upper()
+        filtered = filtered[
+            filtered["reference"].str.upper().str.contains(s, na=False)
+            | filtered["marque"].str.upper().str.contains(s, na=False)
+        ]
+
+    # --- Stock table ---
+    st.markdown("### Tableau de stock")
+
+    def color_stock(val):
+        try:
+            v = int(val)
+        except Exception:
+            return ""
+        if v == 0:
+            return "background-color: #fee2e2; color: #991b1b;"
+        elif v <= 2:
+            return "background-color: #fef3c7; color: #92400e;"
+        else:
+            return "background-color: #d1fae5; color: #065f46;"
+
+    st.dataframe(
+        filtered.style.applymap(color_stock, subset=["stock"]) if not filtered.empty else filtered,
+        use_container_width=True,
+        height=420,
+    )
+
+    # --- Charts ---
+    if not filtered.empty:
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            stock_by_cat = filtered.groupby("categorie")["stock"].sum().sort_values(ascending=False).reset_index()
+            fig_bar = px.bar(
+                stock_by_cat, x="categorie", y="stock",
+                title="Stock par categorie",
+                labels={"categorie": "Categorie", "stock": "Quantite"},
+            )
+            fig_bar.update_traces(marker_color=COLORS["primary"])
+            fig_bar.update_layout(template="plotly_white", showlegend=False)
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        with col_c2:
+            refs_by_cat = filtered.groupby("categorie").size().reset_index(name="n")
+            fig_pie = px.pie(refs_by_cat, values="n", names="categorie", title="Repartition par categorie")
+            fig_pie.update_traces(textposition="inside", textinfo="percent+label")
+            fig_pie.update_layout(template="plotly_white")
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+        # Top 20 highest stock
+        top20 = filtered.nlargest(20, "stock")
+        if not top20.empty:
+            fig_top = px.bar(
+                top20, x="reference", y="stock", color="categorie",
+                title="Top 20 references par stock",
+                labels={"reference": "Reference", "stock": "Quantite"},
+            )
+            fig_top.update_layout(template="plotly_white")
+            st.plotly_chart(fig_top, use_container_width=True)
+
+    # --- Movement history ---
+    st.markdown("---")
+    st.markdown("### Historique des mouvements")
+
+    all_refs = sorted(filtered["reference"].dropna().unique().tolist()) if not filtered.empty else []
+    if all_refs:
+        col_m1, col_m2 = st.columns([2, 1])
+        with col_m1:
+            sel_ref = st.selectbox("Selectionner une reference", all_refs, key="pieces_mvt_ref")
+        with col_m2:
+            sel_cat_row = filtered[filtered["reference"] == sel_ref]
+            sel_cat = sel_cat_row.iloc[0]["categorie"] if not sel_cat_row.empty else ""
+            st.text_input("Categorie", value=sel_cat, disabled=True, key="pieces_mvt_cat")
+
+        if sel_ref:
+            mvts = load_pieces_mouvements(sel_cat, sel_ref)
+            if mvts.empty:
+                st.info("Pas de donnees de mouvement disponibles pour cette reference.")
+            else:
+                col_h1, col_h2 = st.columns(2)
+                with col_h1:
+                    fig_mvt = px.bar(
+                        mvts, x="date", y="quantite", color="client",
+                        title=f"Mouvements: {sel_ref}",
+                        labels={"date": "Date", "quantite": "Quantite"},
+                    )
+                    fig_mvt.update_layout(template="plotly_white")
+                    st.plotly_chart(fig_mvt, use_container_width=True)
+                with col_h2:
+                    mvts_sorted = mvts.sort_values("date").copy()
+                    mvts_sorted["cumul"] = mvts_sorted["quantite"].cumsum()
+                    fig_cum = px.line(
+                        mvts_sorted, x="date", y="cumul",
+                        title=f"Stock cumule: {sel_ref}",
+                        labels={"date": "Date", "cumul": "Stock cumule"},
+                    )
+                    fig_cum.update_traces(line_color=COLORS["primary"], line_width=3)
+                    fig_cum.update_layout(template="plotly_white")
+                    st.plotly_chart(fig_cum, use_container_width=True)
+
+                st.dataframe(mvts, use_container_width=True)
+    else:
+        st.info("Aucune reference disponible avec les filtres actuels.")
 
 
 def render_mise_a_jour_prix():
@@ -2464,7 +3702,7 @@ def init_db_once() -> bool:
 # MAIN
 # =========================
 def main():
-    st.set_page_config(page_title="Multirex", page_icon="🚗", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Multirex Auto DMS", page_icon="🚗", layout="wide", initial_sidebar_state="expanded")
     inject_custom_css()
 
     if not check_password():
@@ -2478,7 +3716,7 @@ def main():
         return
 
     with st.sidebar:
-        md_html("<h2 style='text-align: center; margin-bottom: 2rem;'>🚗 Multirex Auto</h2>")
+        md_html("<h2 style='text-align: center; margin-bottom: 2rem;'>MULTIREX AUTO</h2>")
         st.divider()
         logout_button()
 
@@ -2489,94 +3727,116 @@ def main():
             set_page("home")
             st.rerun()
 
+    st.sidebar.markdown("**Commercial**")
+    sidebar_pages_1 = {
+        "📈 Ventes": "ventes",
+        "🎯 Besoins": "besoins",
+        "📊 Analyse": "analyse",
+        "💶 Mise a jour prix": "mise_a_jour_prix",
+    }
+    for label, pg in sidebar_pages_1.items():
+        if st.sidebar.button(label, use_container_width=True, key=f"sb_{pg}"):
+            set_page(pg)
+            st.rerun()
+
+    st.sidebar.markdown("**Gestion interne**")
+    sidebar_pages_2 = {
+        "📥 Receptions": "receptions",
+        "🔍 Moteurs": "identification_moteurs",
+        "⚙️ Boites": "identification_boites",
+        "📋 Reservations": "reservations",
+        "📜 Historique": "historique",
+    }
+    for label, pg in sidebar_pages_2.items():
+        if st.sidebar.button(label, use_container_width=True, key=f"sb_{pg}"):
+            set_page(pg)
+            st.rerun()
+
+    st.sidebar.markdown("**Outils**")
+    sidebar_pages_3 = {
+        "🔩 Pieces Detachees": "pieces_detachees",
+        "🛠️ Acces Casse": "casse",
+    }
+    for label, pg in sidebar_pages_3.items():
+        if st.sidebar.button(label, use_container_width=True, key=f"sb_{pg}"):
+            set_page(pg)
+            st.rerun()
+
     md_html(
         """
         <div style='background: white; padding: 2rem; border-radius: 16px; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);'>
             <h1 style='margin: 0; font-size: 2.5rem;'>Multirex Auto DMS</h1>
-            <p style='color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1.1rem;'>Système de gestion des moteurs</p>
+            <p style='color: #6b7280; margin: 0.5rem 0 0 0; font-size: 1.1rem;'>Système de gestion intelligent</p>
         </div>
         """
     )
 
     if page == "home":
-        kpis = get_kpis_stock()
-        col1, col2, col3 = st.columns(3)
+        # --- Configurable KPIs ---
+        with st.expander("Configurer les indicateurs", expanded=False):
+            available = list(KPI_CATALOG.keys())
+            labels = [f"{KPI_CATALOG[k]['icon']} {KPI_CATALOG[k]['label']}" for k in available]
+            default_idx = [available.index(k) for k in DEFAULT_KPIS if k in available]
+            selected_labels = st.multiselect(
+                "Choisissez les indicateurs a afficher",
+                labels,
+                default=[labels[i] for i in default_idx],
+                key="kpi_selector",
+            )
+            selected_keys = [available[labels.index(l)] for l in selected_labels if l in labels]
 
-        with col1:
-            md_html(
-                f"""
-                <div class='metric-card'>
-                    <p style='color: #6b7280; margin: 0; font-size: 0.9rem; font-weight: 600;'>MOTEURS DISPONIBLES</p>
-                    <p style='color: {COLORS['success']}; margin: 0.5rem 0 0 0; font-size: 2.5rem; font-weight: 700;'>{kpis['dispo']:,}</p>
-                </div>
-                """
-            )
-        with col2:
-            md_html(
-                f"""
-                <div class='metric-card'>
-                    <p style='color: #6b7280; margin: 0; font-size: 0.9rem; font-weight: 600;'>MOTEURS VENDUS</p>
-                    <p style='color: {COLORS['primary']}; margin: 0.5rem 0 0 0; font-size: 2.5rem; font-weight: 700;'>{kpis['vendus']:,}</p>
-                </div>
-                """
-            )
-        with col3:
-            md_html(
-                f"""
-                <div class='metric-card'>
-                    <p style='color: #6b7280; margin: 0; font-size: 0.9rem; font-weight: 600;'>TOTAL MOTEURS</p>
-                    <p style='color: {COLORS['secondary']}; margin: 0.5rem 0 0 0; font-size: 2.5rem; font-weight: 700;'>{kpis['total']:,}</p>
-                </div>
-                """
-            )
+        if not selected_keys:
+            selected_keys = DEFAULT_KPIS
 
-        md_html("<br>")
+        kpis_data = get_all_dashboard_kpis()
 
-        kpis_boites = get_kpis_boites()
-        colb1, colb2, colb3 = st.columns(3)
+        # Tendance ventes
+        delta_ventes = kpis_data["ventes_mois"] - kpis_data["ventes_mois_prec"]
+        delta_ca = kpis_data["ca_mois"] - kpis_data["ca_mois_prec"]
 
-        with colb1:
-            md_html(
-                f"""
-                <div class='metric-card'>
-                    <p style='color: #6b7280; margin: 0; font-size: 0.9rem; font-weight: 600;'>BOÎTES DISPONIBLES</p>
-                    <p style='color: {COLORS['success']}; margin: 0.5rem 0 0 0; font-size: 2.5rem; font-weight: 700;'>{kpis_boites['dispo']:,}</p>
-                </div>
-                """
-            )
-        with colb2:
-            md_html(
-                f"""
-                <div class='metric-card'>
-                    <p style='color: #6b7280; margin: 0; font-size: 0.9rem; font-weight: 600;'>BOÎTES VENDUES</p>
-                    <p style='color: {COLORS['primary']}; margin: 0.5rem 0 0 0; font-size: 2.5rem; font-weight: 700;'>{kpis_boites['vendus']:,}</p>
-                </div>
-                """
-            )
-        with colb3:
-            md_html(
-                f"""
-                <div class='metric-card'>
-                    <p style='color: #6b7280; margin: 0; font-size: 0.9rem; font-weight: 600;'>TOTAL BOÎTES</p>
-                    <p style='color: {COLORS['secondary']}; margin: 0.5rem 0 0 0; font-size: 2.5rem; font-weight: 700;'>{kpis_boites['total']:,}</p>
-                </div>
-                """
-            )
+        # Display KPIs in rows of 4
+        for row_start in range(0, len(selected_keys), 4):
+            row_keys = selected_keys[row_start:row_start + 4]
+            cols = st.columns(len(row_keys))
+            for col, key in zip(cols, row_keys):
+                with col:
+                    meta = KPI_CATALOG[key]
+                    render_kpi_card(key, kpis_data.get(key, 0), meta)
+
+        # Show trend indicators
+        if "ventes_mois" in selected_keys or "ca_mois" in selected_keys:
+            trend_sign_v = "+" if delta_ventes >= 0 else ""
+            trend_sign_c = "+" if delta_ca >= 0 else ""
+            trend_color_v = "#10b981" if delta_ventes >= 0 else "#ef4444"
+            trend_color_c = "#10b981" if delta_ca >= 0 else "#ef4444"
+            md_html(f"""
+            <div style='background: rgba(255,255,255,0.9); border-radius:12px; padding:0.8rem 1.5rem; margin-top:0.5rem; display:flex; gap:2rem; flex-wrap:wrap;'>
+                <span style='color:#6b7280; font-size:0.85rem;'>Tendance vs mois precedent :</span>
+                <span style='color:{trend_color_v}; font-weight:600; font-size:0.85rem;'>{trend_sign_v}{delta_ventes} ventes</span>
+                <span style='color:{trend_color_c}; font-weight:600; font-size:0.85rem;'>{trend_sign_c}{delta_ca:,.0f} EUR CA</span>
+            </div>
+            """)
 
         md_html("<br>")
 
-    if page == "home":
-        render_home()
-    elif page == "ventes":
-        render_ventes()
-    elif page == "besoins":
-        render_besoins()
-    elif page == "analyse":
-        render_analyse()
-    elif page == "casse":
-        render_casse()
-    elif page == "mise_a_jour_prix":
-        render_mise_a_jour_prix()
+    page_map = {
+        "home": render_home,
+        "ventes": render_ventes,
+        "besoins": render_besoins,
+        "analyse": render_analyse,
+        "casse": render_casse,
+        "mise_a_jour_prix": render_mise_a_jour_prix,
+        "pieces_detachees": render_pieces_detachees,
+        "receptions": render_receptions,
+        "identification_moteurs": render_identification_moteurs,
+        "identification_boites": render_identification_boites,
+        "reservations": render_reservations,
+        "historique": render_historique,
+    }
+
+    renderer = page_map.get(page)
+    if renderer:
+        renderer()
     else:
         set_page("home")
         st.rerun()

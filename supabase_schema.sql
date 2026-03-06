@@ -331,6 +331,44 @@ CREATE TABLE breaker_free_offers (
 );
 
 -- ============================================
+-- PIECES DETACHEES (stock + mouvements)
+-- ============================================
+
+DROP TABLE IF EXISTS tbl_pieces_mouvements CASCADE;
+DROP TABLE IF EXISTS tbl_pieces_detachees CASCADE;
+
+CREATE TABLE tbl_pieces_detachees (
+    id SERIAL PRIMARY KEY,
+    categorie TEXT NOT NULL,
+    marque TEXT DEFAULT '',
+    reference TEXT NOT NULL,
+    modele TEXT DEFAULT '',
+    stock INTEGER DEFAULT 0,
+    date_import TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_pieces_det_categorie ON tbl_pieces_detachees(categorie);
+CREATE INDEX idx_pieces_det_reference ON tbl_pieces_detachees(reference);
+CREATE INDEX idx_pieces_det_marque ON tbl_pieces_detachees(marque);
+
+COMMENT ON TABLE tbl_pieces_detachees IS 'Stock des pieces detachees (compresseurs, cremailleres, demarreurs, calculateurs, BSI, ABS, COM2000, etc.)';
+
+CREATE TABLE tbl_pieces_mouvements (
+    id SERIAL PRIMARY KEY,
+    categorie TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    date_mouvement TIMESTAMP,
+    quantite INTEGER DEFAULT 0,
+    client TEXT DEFAULT ''
+);
+
+CREATE INDEX idx_pieces_mvt_ref ON tbl_pieces_mouvements(reference);
+CREATE INDEX idx_pieces_mvt_cat ON tbl_pieces_mouvements(categorie);
+CREATE INDEX idx_pieces_mvt_date ON tbl_pieces_mouvements(date_mouvement);
+
+COMMENT ON TABLE tbl_pieces_mouvements IS 'Historique des mouvements de pieces detachees (entrees/sorties)';
+
+-- ============================================
 -- VUES
 -- ============================================
 

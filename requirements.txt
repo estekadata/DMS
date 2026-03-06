@@ -4,4 +4,5 @@ plotly
 sqlalchemy
 psycopg2-binary
 openpyxl
+xlrd
 python-dotenv
