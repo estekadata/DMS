@@ -1800,6 +1800,29 @@ def get_receptions_list(limit: int = 200, search: str = "") -> pd.DataFrame:
     return df
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def _get_client_map() -> dict:
+    """Cache a mapping of client ID -> name for resolving resa_client_moteur."""
+    df = sql_df("SELECT n_client, COALESCE(societe, nom_contact, '') AS nom FROM tbl_clients WHERE societe IS NOT NULL OR nom_contact IS NOT NULL")
+    if df.empty:
+        return {}
+    return dict(zip(df["n_client"].astype(str), df["nom"]))
+
+
+def resolve_client_names(df: pd.DataFrame, col: str = "resa_client_moteur") -> pd.DataFrame:
+    """Replace numeric client IDs with actual client names in the given column."""
+    if col not in df.columns or df.empty:
+        return df
+    client_map = _get_client_map()
+    if not client_map:
+        return df
+    df = df.copy()
+    df[col] = df[col].apply(
+        lambda v: client_map.get(str(int(float(v))), v) if pd.notna(v) and str(v).strip().isdigit() else v
+    )
+    return df
+
+
 @st.cache_data(show_spinner=False, ttl=300)
 def get_reception_moteurs(n_reception: int) -> pd.DataFrame:
     q = """
@@ -1807,20 +1830,16 @@ def get_reception_moteurs(n_reception: int) -> pd.DataFrame:
       m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
       m.modele_saisi, m.prix_achat_moteur, m.etat_moteur,
       m.observations,
-      CASE
-        WHEN m.resa_client_moteur ~ '^\d+$' THEN COALESCE(c.societe, c.nom_contact, m.resa_client_moteur)
-        ELSE m.resa_client_moteur
-      END AS resa_client_moteur,
+      m.resa_client_moteur,
       m.date_resa_moteur,
       CASE WHEN m.n_expedition IS NOT NULL OR m.archiver = true THEN 'Vendu/Archive'
            WHEN m.resa_client_moteur IS NOT NULL AND TRIM(m.resa_client_moteur) <> '' THEN 'Reserve'
            ELSE 'Disponible' END AS statut
     FROM tbl_moteurs m
-    LEFT JOIN tbl_clients c ON m.resa_client_moteur ~ '^\d+$' AND c.n_client = m.resa_client_moteur::integer
     WHERE m.num_reception = :nrec
     ORDER BY m.n_moteur
     """
-    return sql_df(q, {"nrec": int(n_reception)})
+    return resolve_client_names(sql_df(q, {"nrec": int(n_reception)}))
 
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -1882,10 +1901,7 @@ def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter:
       m.modele_saisi, m.prix_achat_moteur,
       m.etat_moteur, m.etat_carter,
       m.observations,
-      CASE
-        WHEN m.resa_client_moteur ~ '^\\d+$' THEN COALESCE(cl.societe, cl.nom_contact, m.resa_client_moteur)
-        ELSE m.resa_client_moteur
-      END AS resa_client_moteur,
+      m.resa_client_moteur,
       m.date_resa_moteur,
       m.date_modif, m.utilisateur,
       m.n_expedition, m.archiver,
@@ -1901,12 +1917,11 @@ def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter:
     LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
     LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
     LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
-    LEFT JOIN tbl_clients cl ON m.resa_client_moteur ~ '^\\d+$' AND cl.n_client = m.resa_client_moteur::integer
     {where}
     ORDER BY m.n_moteur DESC
     LIMIT :lim
     """
-    return sql_df(q, params)
+    return resolve_client_names(sql_df(q, params))
 
 
 # =========================
@@ -1971,10 +1986,7 @@ def get_moteurs_reserves() -> pd.DataFrame:
     SELECT
       m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
       m.modele_saisi, m.prix_achat_moteur,
-      CASE
-        WHEN m.resa_client_moteur ~ '^\d+$' THEN COALESCE(cl.societe, cl.nom_contact, m.resa_client_moteur)
-        ELSE m.resa_client_moteur
-      END AS resa_client_moteur,
+      m.resa_client_moteur,
       m.date_resa_moteur,
       m.observations,
       ma.nom_marque AS marque,
@@ -1982,14 +1994,13 @@ def get_moteurs_reserves() -> pd.DataFrame:
     FROM tbl_moteurs m
     LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
     LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
-    LEFT JOIN tbl_clients cl ON m.resa_client_moteur ~ '^\d+$' AND cl.n_client = m.resa_client_moteur::integer
     WHERE m.resa_client_moteur IS NOT NULL
       AND TRIM(m.resa_client_moteur) <> ''
       AND (m.n_expedition IS NULL)
       AND (m.archiver IS NULL OR m.archiver = false)
     ORDER BY m.date_resa_moteur DESC NULLS LAST
     """
-    return sql_df(q)
+    return resolve_client_names(sql_df(q))
 
 
 @st.cache_data(show_spinner=False, ttl=60)
