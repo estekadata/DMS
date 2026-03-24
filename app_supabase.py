@@ -1288,13 +1288,15 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
 def get_ventes_recents_boites(n_months: int) -> pd.DataFrame:
     q = """
     SELECT
-      eb."date_validation"::date AS jour,
-      to_char(eb."date_validation", 'YYYY-MM') AS mois,
-      eb."N_BV"::text AS code_boite,
+      eb.date_validation::date AS jour,
+      to_char(eb.date_validation, 'YYYY-MM') AS mois,
+      COALESCE(b.ref_bv, eb.n_bv::text) AS code_boite,
+      COALESCE(b.ref_bv, eb.n_bv::text) AS type_moteur,
       COUNT(*) AS nb_vendus
-    FROM "tbl_EXPEDITIONS_boîtes" eb
-    WHERE eb."date_validation" >= NOW() - (:months || ' months')::interval
-    GROUP BY jour, mois, code_boite
+    FROM tbl_expeditions_boites eb
+    LEFT JOIN tbl_boites b ON b.n_bv = eb.n_bv
+    WHERE eb.date_validation >= NOW() - (:months || ' months')::interval
+    GROUP BY jour, mois, code_boite, type_moteur
     """
     return sql_df(q, {"months": int(n_months)})
 
@@ -1378,6 +1380,43 @@ def get_besoins_moteurs(top_n: int = 50) -> pd.DataFrame:
     FROM ventes v
     LEFT JOIN achats a ON a.code_moteur = v.code_moteur
     LEFT JOIN stock_dispo s ON s.code_moteur = v.code_moteur
+    ORDER BY v.nb_vendus_3m DESC
+    LIMIT :topn
+    """
+    df = sql_df(q, {"topn": int(top_n)})
+    if not df.empty:
+        df["score_urgence"] = (df["nb_vendus_3m"] / (df["nb_stock_dispo"] + 1)).round(2)
+        df = df.sort_values(["score_urgence", "nb_vendus_3m"], ascending=False)
+    return df
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_besoins_boites(top_n: int = 50) -> pd.DataFrame:
+    q = """
+    WITH ventes AS (
+        SELECT
+            COALESCE(b.ref_bv, eb.n_bv::text) AS code_boite,
+            COUNT(*) AS nb_vendus_3m
+        FROM tbl_expeditions_boites eb
+        LEFT JOIN tbl_boites b ON b.n_bv = eb.n_bv
+        WHERE eb.date_validation >= NOW() - INTERVAL '3 months'
+        GROUP BY code_boite
+    ),
+    stock_dispo AS (
+        SELECT
+            COALESCE(ref_bv, n_bv::text) AS code_boite,
+            COUNT(*) AS nb_stock_dispo
+        FROM tbl_boites
+        WHERE stock = true AND (vendu IS NULL OR vendu = false)
+        GROUP BY code_boite
+    )
+    SELECT
+        v.code_boite,
+        v.code_boite AS type_moteur,
+        v.nb_vendus_3m,
+        COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo
+    FROM ventes v
+    LEFT JOIN stock_dispo s ON s.code_boite = v.code_boite
     ORDER BY v.nb_vendus_3m DESC
     LIMIT :topn
     """
@@ -1537,6 +1576,97 @@ def get_prix_vente_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
     ORDER BY mois;
     """
     return sql_df(q, {"months": int(n_months), "code": code.upper()})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_prix_par_mois_filtre(n_months: int, energie: str = "", marque: str = "") -> pd.DataFrame:
+    """Prix achat et vente mensuels filtrés par énergie et/ou marque."""
+    clauses_achat = ["r.date_achat >= NOW() - (:months || ' months')::interval",
+                     "m.prix_achat_moteur IS NOT NULL", "m.prix_achat_moteur > 0"]
+    clauses_vente = ["em.date_validation >= NOW() - (:months || ' months')::interval",
+                     "em.prix_vente_moteur IS NOT NULL", "em.prix_vente_moteur > 0"]
+    params: dict = {"months": int(n_months)}
+
+    if energie and energie.strip():
+        clauses_achat.append("UPPER(e.nom_energie) LIKE :energie")
+        clauses_vente.append("UPPER(e2.nom_energie) LIKE :energie")
+        params["energie"] = f"%{energie.strip().upper()}%"
+    if marque and marque.strip():
+        clauses_achat.append("UPPER(ma.nom_marque) LIKE :marque")
+        clauses_vente.append("UPPER(ma2.nom_marque) LIKE :marque")
+        params["marque"] = f"%{marque.strip().upper()}%"
+
+    q_achat = f"""
+    SELECT to_char(r.date_achat, 'YYYY-MM') AS mois, AVG(m.prix_achat_moteur) AS prix_achat_moy
+    FROM tbl_moteurs m
+    JOIN tbl_receptions r ON r.n_reception = m.num_reception
+    LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
+    LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    WHERE {' AND '.join(clauses_achat)}
+    GROUP BY mois ORDER BY mois
+    """
+    q_vente = f"""
+    SELECT to_char(em.date_validation, 'YYYY-MM') AS mois, AVG(em.prix_vente_moteur) AS prix_vente_moy
+    FROM tbl_expeditions_moteurs em
+    JOIN tbl_moteurs m2 ON m2.n_moteur = em.n_moteur
+    LEFT JOIN tbl_marques ma2 ON ma2.n_marque = m2.n_type_moteur
+    LEFT JOIN tbl_energie e2 ON e2.n_energie = m2.compo_moteur
+    WHERE {' AND '.join(clauses_vente)}
+    GROUP BY mois ORDER BY mois
+    """
+    achats = sql_df(q_achat, params)
+    ventes = sql_df(q_vente, params)
+    df = pd.merge(achats, ventes, on="mois", how="outer").sort_values("mois")
+    return df
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_stock_evolution(n_months: int = 12) -> pd.DataFrame:
+    """Evolution du stock disponible par mois (basé sur les dates d'achat et de sortie)."""
+    q = """
+    WITH mois_range AS (
+        SELECT generate_series(
+            date_trunc('month', NOW() - (:months || ' months')::interval),
+            date_trunc('month', NOW()),
+            '1 month'::interval
+        )::date AS mois_date
+    ),
+    entrees AS (
+        SELECT date_trunc('month', r.date_achat)::date AS mois_date, COUNT(*) AS nb_entrees
+        FROM tbl_moteurs m
+        JOIN tbl_receptions r ON r.n_reception = m.num_reception
+        WHERE r.date_achat >= NOW() - (:months || ' months')::interval
+        GROUP BY mois_date
+    ),
+    sorties AS (
+        SELECT date_trunc('month', em.date_validation)::date AS mois_date, COUNT(*) AS nb_sorties
+        FROM tbl_expeditions_moteurs em
+        WHERE em.date_validation >= NOW() - (:months || ' months')::interval
+        GROUP BY mois_date
+    )
+    SELECT
+        to_char(mr.mois_date, 'YYYY-MM') AS mois,
+        COALESCE(en.nb_entrees, 0) AS entrees,
+        COALESCE(so.nb_sorties, 0) AS sorties,
+        COALESCE(en.nb_entrees, 0) - COALESCE(so.nb_sorties, 0) AS delta
+    FROM mois_range mr
+    LEFT JOIN entrees en ON en.mois_date = mr.mois_date
+    LEFT JOIN sorties so ON so.mois_date = mr.mois_date
+    ORDER BY mr.mois_date
+    """
+    return sql_df(q, {"months": int(n_months)})
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_distinct_energies() -> list:
+    df = sql_df("SELECT DISTINCT nom_energie FROM tbl_energie WHERE nom_energie IS NOT NULL ORDER BY nom_energie")
+    return df["nom_energie"].tolist() if not df.empty else []
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def get_distinct_marques() -> list:
+    df = sql_df("SELECT DISTINCT nom_marque FROM tbl_marques WHERE nom_marque IS NOT NULL AND selection_marque = true ORDER BY nom_marque")
+    return df["nom_marque"].tolist() if not df.empty else []
 
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -1717,7 +1847,38 @@ def get_reception_boites(n_reception: int) -> pd.DataFrame:
 # =========================
 @st.cache_data(show_spinner=False, ttl=120)
 def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter: str = "", statut_filter: str = "", limit: int = 500) -> pd.DataFrame:
-    q = """
+    clauses = []
+    params: dict = {"lim": int(limit)}
+
+    if search and search.strip():
+        clauses.append("""
+            (UPPER(m.code_moteur) LIKE :search
+             OR UPPER(m.num_serie) LIKE :search
+             OR UPPER(m.num_interne_moteur) LIKE :search
+             OR UPPER(m.modele_saisi) LIKE :search)
+        """)
+        params["search"] = f"%{search.strip().upper()}%"
+
+    if marque_filter and marque_filter.strip():
+        clauses.append("UPPER(ma.nom_marque) LIKE :marque")
+        params["marque"] = f"%{marque_filter.strip().upper()}%"
+
+    if energie_filter and energie_filter.strip():
+        clauses.append("UPPER(e.nom_energie) LIKE :energie")
+        params["energie"] = f"%{energie_filter.strip().upper()}%"
+
+    if statut_filter == "Disponible":
+        clauses.append("m.n_expedition IS NULL AND (m.archiver IS NULL OR m.archiver = false) AND (m.resa_client_moteur IS NULL OR TRIM(m.resa_client_moteur) = '')")
+    elif statut_filter == "Reserve":
+        clauses.append("m.resa_client_moteur IS NOT NULL AND TRIM(m.resa_client_moteur) <> '' AND m.n_expedition IS NULL AND (m.archiver IS NULL OR m.archiver = false)")
+    elif statut_filter == "Vendu/Archive":
+        clauses.append("(m.n_expedition IS NOT NULL OR m.archiver = true)")
+
+    where = " AND ".join(clauses)
+    if where:
+        where = "WHERE " + where
+
+    q = f"""
     SELECT
       m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
       m.modele_saisi, m.prix_achat_moteur,
@@ -1738,25 +1899,11 @@ def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter:
     LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
     LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
     LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    {where}
     ORDER BY m.n_moteur DESC
     LIMIT :lim
     """
-    df = sql_df(q, {"lim": int(limit)})
-    if search and search.strip():
-        s = search.strip().upper()
-        df = df[
-            df["code_moteur"].astype(str).str.upper().str.contains(s, na=False)
-            | df["num_serie"].astype(str).str.upper().str.contains(s, na=False)
-            | df["num_interne_moteur"].astype(str).str.upper().str.contains(s, na=False)
-            | df["modele_saisi"].astype(str).str.upper().str.contains(s, na=False)
-        ]
-    if marque_filter:
-        df = df[df["marque"].astype(str).str.upper().str.contains(marque_filter.upper(), na=False)]
-    if energie_filter:
-        df = df[df["energie"].astype(str).str.upper().str.contains(energie_filter.upper(), na=False)]
-    if statut_filter:
-        df = df[df["statut"] == statut_filter]
-    return df
+    return sql_df(q, params)
 
 
 # =========================
@@ -1764,7 +1911,29 @@ def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter:
 # =========================
 @st.cache_data(show_spinner=False, ttl=120)
 def search_boites_db(search: str = "", statut_filter: str = "", limit: int = 500) -> pd.DataFrame:
-    q = """
+    clauses = []
+    params: dict = {"lim": int(limit)}
+
+    if search and search.strip():
+        clauses.append("""
+            (UPPER(b.ref_bv) LIKE :search
+             OR UPPER(b.num_interne_bv) LIKE :search
+             OR UPPER(b.num_interne_moteur) LIKE :search)
+        """)
+        params["search"] = f"%{search.strip().upper()}%"
+
+    if statut_filter == "Disponible":
+        clauses.append("b.stock = true AND (b.vendu IS NULL OR b.vendu = false) AND (b.resa_client_bv IS NULL OR TRIM(b.resa_client_bv) = '')")
+    elif statut_filter == "Reserve":
+        clauses.append("b.resa_client_bv IS NOT NULL AND TRIM(b.resa_client_bv) <> '' AND (b.vendu IS NULL OR b.vendu = false)")
+    elif statut_filter == "Vendu":
+        clauses.append("b.vendu = true")
+
+    where = " AND ".join(clauses)
+    if where:
+        where = "WHERE " + where
+
+    q = f"""
     SELECT
       b.n_bv, b.num_interne_bv, b.ref_bv, b.num_interne_moteur,
       b.achat_bv, b.prix_vte_bv,
@@ -1783,20 +1952,11 @@ def search_boites_db(search: str = "", statut_filter: str = "", limit: int = 500
     LEFT JOIN tbl_receptions r ON r.n_reception = b.n_reception
     LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
     LEFT JOIN tbl_emplacements emp ON emp.id_emplacement = b.id_emplacement
+    {where}
     ORDER BY b.n_bv DESC
     LIMIT :lim
     """
-    df = sql_df(q, {"lim": int(limit)})
-    if search and search.strip():
-        s = search.strip().upper()
-        df = df[
-            df["ref_bv"].astype(str).str.upper().str.contains(s, na=False)
-            | df["num_interne_bv"].astype(str).str.upper().str.contains(s, na=False)
-            | df["num_interne_moteur"].astype(str).str.upper().str.contains(s, na=False)
-        ]
-    if statut_filter:
-        df = df[df["statut"] == statut_filter]
-    return df
+    return sql_df(q, params)
 
 
 # =========================
@@ -2189,50 +2349,103 @@ def render_besoins():
     st.markdown("## 🎯 Besoins actuels")
     piece = piece_selector("besoins_piece")
 
-    topn = st.slider("Nombre de besoins affichés", min_value=10, max_value=200, value=50, step=10)
+    topn = st.slider("Nombre de references affichees", min_value=10, max_value=500, value=100, step=10,
+                      help="Nombre de references a analyser (vendues sur 3 mois)")
     if piece == "moteurs":
         besoins = get_besoins_moteurs(topn)
     else:
         besoins = get_besoins_boites(topn)
 
     if besoins.empty:
-        st.warning("Aucun besoin calculé.")
+        st.warning("Aucun besoin calcule.")
         return
 
-    st.info("💡 Besoins calculés sur les ventes des 3 derniers mois avec analyse du stock et prix moyens")
+    st.info("💡 Score urgence = ventes 3 mois / (stock dispo + 1). "
+            "Score > 1 = en manque (forte demande, peu de stock). "
+            "Score < 0.5 avec stock eleve = surstock potentiel.")
 
-        # combien de barres on veut afficher (piloté par le slider)
-    topk = min(int(topn), len(besoins))  # topn = ton slider "Nombre de besoins affichés"
-
-    # agrégation par type_moteur (ou autre clé via code_col)
     code_col = "type_moteur" if piece == "moteurs" else "code_boite"
 
-    top_urgent = (
-        besoins
-        .groupby(code_col, as_index=False)["score_urgence"]
-        .max()
-        .sort_values("score_urgence", ascending=False)
-        .head(topk)
-    )
+    tab_manque, tab_surstock, tab_all = st.tabs(["🔴 En manque", "🟡 En surstock", "📋 Tout voir"])
 
-    fig = px.bar(
-        top_urgent,
-        x=code_col,
-        y="score_urgence",
-        title=f"Top {topk} besoins les plus urgents",
-        labels={code_col: "Type moteur" if piece == "moteurs" else "Code boîte",
-                "score_urgence": "Score d'urgence"},
-        color="score_urgence",
-        color_continuous_scale=["#10b981", "#f59e0b", "#ef4444"],
-    )
-    fig.update_layout(template="plotly_white", showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    with tab_manque:
+        st.markdown("### References recherchees et non disponibles (ou stock insuffisant)")
+        manque = besoins[besoins["score_urgence"] >= 1.0].sort_values("score_urgence", ascending=False)
+        if manque.empty:
+            st.success("Aucune reference en manque critique.")
+        else:
+            st.warning(f"**{len(manque)} reference(s) en manque** (vendues mais stock insuffisant)")
+            fig = px.bar(
+                manque.head(50),
+                x=code_col,
+                y="score_urgence",
+                title=f"References en manque (score >= 1)",
+                labels={code_col: "Type moteur" if piece == "moteurs" else "Code boite",
+                        "score_urgence": "Score d'urgence"},
+                color="score_urgence",
+                color_continuous_scale=["#f59e0b", "#ef4444"],
+            )
+            fig.update_layout(template="plotly_white", showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
 
-    base_cols = [code_col, "nb_vendus_3m", "nb_stock_dispo", "score_urgence"]
-    optional_cols = ["marque", "energie", "type_nom", "type_modele", "type_annee"]
-    cols_to_show = [c for c in base_cols + optional_cols if c in besoins.columns]
+            base_cols = [code_col, "nb_vendus_3m", "nb_stock_dispo", "score_urgence"]
+            optional_cols = ["marque", "energie", "type_nom", "type_modele", "type_annee"]
+            cols_to_show = [c for c in base_cols + optional_cols if c in manque.columns]
+            st.dataframe(manque[cols_to_show], use_container_width=True)
 
-    st.dataframe(besoins[cols_to_show], use_container_width=True)
+    with tab_surstock:
+        st.markdown("### References en surstock (stock eleve, peu de ventes)")
+        surstock = besoins[(besoins["nb_stock_dispo"] > 0) & (besoins["score_urgence"] < 0.5)].sort_values("nb_stock_dispo", ascending=False)
+        if surstock.empty:
+            st.success("Aucune reference en surstock.")
+        else:
+            st.info(f"**{len(surstock)} reference(s) en surstock** (stock eleve, faible demande)")
+            fig = px.bar(
+                surstock.head(50),
+                x=code_col,
+                y="nb_stock_dispo",
+                title="References en surstock",
+                labels={code_col: "Type moteur" if piece == "moteurs" else "Code boite",
+                        "nb_stock_dispo": "Stock disponible"},
+                color="score_urgence",
+                color_continuous_scale=["#10b981", "#f59e0b"],
+            )
+            fig.update_layout(template="plotly_white", showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+
+            base_cols = [code_col, "nb_vendus_3m", "nb_stock_dispo", "score_urgence"]
+            optional_cols = ["marque", "energie", "type_nom", "type_modele", "type_annee"]
+            cols_to_show = [c for c in base_cols + optional_cols if c in surstock.columns]
+            st.dataframe(surstock[cols_to_show], use_container_width=True)
+
+    with tab_all:
+        st.markdown("### Toutes les references analysees")
+        topk = min(int(topn), len(besoins))
+        top_urgent = (
+            besoins
+            .groupby(code_col, as_index=False)["score_urgence"]
+            .max()
+            .sort_values("score_urgence", ascending=False)
+            .head(topk)
+        )
+
+        fig = px.bar(
+            top_urgent,
+            x=code_col,
+            y="score_urgence",
+            title=f"Top {topk} besoins par score d'urgence",
+            labels={code_col: "Type moteur" if piece == "moteurs" else "Code boite",
+                    "score_urgence": "Score d'urgence"},
+            color="score_urgence",
+            color_continuous_scale=["#10b981", "#f59e0b", "#ef4444"],
+        )
+        fig.update_layout(template="plotly_white", showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+        base_cols = [code_col, "nb_vendus_3m", "nb_stock_dispo", "score_urgence"]
+        optional_cols = ["marque", "energie", "type_nom", "type_modele", "type_annee"]
+        cols_to_show = [c for c in base_cols + optional_cols if c in besoins.columns]
+        st.dataframe(besoins[cols_to_show], use_container_width=True)
 
 
 def render_casse():
@@ -2786,7 +2999,6 @@ def render_analyse():
         if piece == "moteurs":
             dispo = get_stock_dispo_breakdown()
         else:
-            # NOTE: fonction non fournie dans ton extrait; je ne touche pas
             dispo = get_stock_dispo_breakdown_boites()
 
         col1, col2 = st.columns(2)
@@ -2794,7 +3006,7 @@ def render_analyse():
             dispo_marque = dispo[dispo["marque"].notna() & (dispo["marque"] != "")]
             if not dispo_marque.empty:
                 s = dispo_marque.groupby("marque")["n"].sum().sort_values(ascending=False).head(15).reset_index()
-                fig = px.bar(s, x="marque", y="n", title="Top 15 marques en stock", labels={"marque": "Marque", "n": "Quantité"})
+                fig = px.bar(s, x="marque", y="n", title="Top 15 marques en stock", labels={"marque": "Marque", "n": "Quantite"})
                 fig.update_traces(marker_color=COLORS["primary"])
                 fig.update_layout(template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
@@ -2803,58 +3015,105 @@ def render_analyse():
             dispo_energie = dispo[dispo["energie"].notna() & (dispo["energie"] != "")]
             if not dispo_energie.empty:
                 s = dispo_energie.groupby("energie")["n"].sum().reset_index()
-                fig = px.pie(s, values="n", names="energie", title="Répartition par énergie")
+                fig = px.pie(s, values="n", names="energie", title="Repartition par energie")
                 fig.update_traces(textposition="inside", textinfo="percent+label")
                 fig.update_layout(template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
 
-        prix = get_prix_achat_dispo(limit=200000)
-        if not prix.empty:
-            fig = px.histogram(prix, x="prix", nbins=40, title="Distribution des prix d'achat", labels={"prix": "Prix d'achat (€)", "count": "Fréquence"})
-            fig.update_traces(marker_color=COLORS["success"])
-            fig.update_layout(template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
+        if piece == "moteurs":
+            st.markdown("### Evolution du stock (entrees / sorties)")
+            n_months_stock = st.slider("Periode (mois)", 3, 36, 12, 1, key="stock_evol_months")
+            stock_evol = get_stock_evolution(n_months_stock)
+            if not stock_evol.empty:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=stock_evol["mois"], y=stock_evol["entrees"], name="Entrees (achats)", marker_color=COLORS["success"]))
+                fig.add_trace(go.Bar(x=stock_evol["mois"], y=stock_evol["sorties"], name="Sorties (ventes)", marker_color=COLORS["primary"]))
+                fig.add_trace(go.Scatter(x=stock_evol["mois"], y=stock_evol["delta"].cumsum(), name="Variation cumulee",
+                                         mode="lines+markers", line=dict(color=COLORS["info"], width=3), yaxis="y2"))
+                fig.update_layout(
+                    title="Flux de stock mensuel", xaxis_title="Mois",
+                    yaxis=dict(title="Nombre de moteurs"),
+                    yaxis2=dict(title="Variation cumulee", overlaying="y", side="right"),
+                    template="plotly_white", barmode="group", hovermode="x unified"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(stock_evol, use_container_width=True)
 
     with tabs[1]:
-        st.markdown("### Évolution des prix")
-        n_months = st.slider("Période (mois)", 3, 36, 12, 1, key="prix_n_months")
+        st.markdown("### Evolution des prix")
+        n_months = st.slider("Periode (mois)", 3, 36, 12, 1, key="prix_n_months")
 
-        achats = get_prix_achat_par_mois(n_months)
-        ventes = get_prix_vente_par_mois(n_months)
-        df_global = pd.merge(achats, ventes, on="mois", how="outer").sort_values("mois")
+        st.markdown("#### Filtres (optionnel)")
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            energies = ["Tous"] + get_distinct_energies()
+            sel_energie = st.selectbox("Energie", energies, key="prix_energie_filter")
+        with col_f2:
+            marques = ["Toutes"] + get_distinct_marques()
+            sel_marque = st.selectbox("Marque", marques, key="prix_marque_filter")
+
+        energie_f = "" if sel_energie == "Tous" else sel_energie
+        marque_f = "" if sel_marque == "Toutes" else sel_marque
+
+        if energie_f or marque_f:
+            df_global = get_prix_par_mois_filtre(n_months, energie=energie_f, marque=marque_f)
+            titre_filtre = f" ({sel_energie}" if energie_f else " (Tous"
+            titre_filtre += f" / {sel_marque})" if marque_f else " / Toutes)"
+        else:
+            achats = get_prix_achat_par_mois(n_months)
+            ventes = get_prix_vente_par_mois(n_months)
+            df_global = pd.merge(achats, ventes, on="mois", how="outer").sort_values("mois")
+            titre_filtre = " (global)"
 
         if not df_global.empty:
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=df_global["mois"], y=df_global["prix_achat_moy"], mode="lines+markers", name="Prix achat",
-                                     line=dict(color=COLORS["primary"], width=3), marker=dict(size=8)))
-            fig.add_trace(go.Scatter(x=df_global["mois"], y=df_global["prix_vente_moy"], mode="lines+markers", name="Prix vente",
-                                     line=dict(color=COLORS["success"], width=3), marker=dict(size=8)))
+            if "prix_achat_moy" in df_global.columns:
+                fig.add_trace(go.Scatter(x=df_global["mois"], y=df_global["prix_achat_moy"], mode="lines+markers", name="Prix achat",
+                                         line=dict(color=COLORS["primary"], width=3), marker=dict(size=8)))
+            if "prix_vente_moy" in df_global.columns:
+                fig.add_trace(go.Scatter(x=df_global["mois"], y=df_global["prix_vente_moy"], mode="lines+markers", name="Prix vente",
+                                         line=dict(color=COLORS["success"], width=3), marker=dict(size=8)))
 
-            fig.update_layout(title="Évolution mensuelle des prix moyens", xaxis_title="Mois", yaxis_title="Prix (€)",
+            fig.update_layout(title=f"Evolution mensuelle des prix moyens{titre_filtre}", xaxis_title="Mois", yaxis_title="Prix (EUR)",
                               template="plotly_white", hovermode="x unified")
             st.plotly_chart(fig, use_container_width=True)
 
-            df_global["marge_moy_estimee"] = df_global["prix_vente_moy"] - df_global["prix_achat_moy"]
+            if "prix_achat_moy" in df_global.columns and "prix_vente_moy" in df_global.columns:
+                df_global["marge_moy_estimee"] = df_global["prix_vente_moy"] - df_global["prix_achat_moy"]
             st.dataframe(df_global, use_container_width=True)
+        else:
+            st.info("Aucune donnee de prix pour ces filtres.")
 
     with tabs[2]:
         st.markdown("### Variations de prix")
+        st.info("Compare les prix moyens sur une fenetre recente vs la fenetre precedente. "
+                "Les hausses/baisses montrent les types moteurs dont les prix evoluent le plus.")
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            window = st.selectbox("Fenêtre (mois)", [1, 2, 3, 4, 6], index=2)
+            window = st.selectbox("Fenetre (mois)", [1, 2, 3, 4, 6], index=2, key="tendances_window")
         with col2:
-            minc = st.selectbox("Min observations", [3, 5, 10, 20], index=1)
+            minc = st.selectbox("Min observations", [2, 3, 5, 10, 20], index=1, key="tendances_minc")
         with col3:
-            topk = st.selectbox("Top affiché", [10, 20, 30, 50], index=1)
+            topk = st.selectbox("Top affiche", [10, 20, 30, 50], index=1, key="tendances_topk")
 
-        movers_achat = get_price_movers("achat", window_months=window, lookback_months=max(12, window * 4), min_count=minc)
-        movers_vente = get_price_movers("vente", window_months=window, lookback_months=max(12, window * 4), min_count=minc)
+        try:
+            movers_achat = get_price_movers("achat", window_months=window, lookback_months=max(12, window * 4), min_count=minc)
+            movers_vente = get_price_movers("vente", window_months=window, lookback_months=max(12, window * 4), min_count=minc)
+        except Exception as e:
+            st.error(f"Erreur lors du calcul des tendances : {e}")
+            movers_achat = pd.DataFrame()
+            movers_vente = pd.DataFrame()
 
-        code_info = get_code_info()
+        try:
+            code_info = get_code_info()
+        except Exception:
+            code_info = pd.DataFrame()
 
         def enrich(df: pd.DataFrame) -> pd.DataFrame:
             if df is None or df.empty:
+                return pd.DataFrame()
+            if code_info.empty:
                 return df
             out = df.merge(code_info, on="code_moteur", how="left")
             cols = [
@@ -2870,29 +3129,33 @@ def render_analyse():
         col4, col5 = st.columns(2)
 
         with col4:
-            st.markdown("#### 🔺 Achats - Hausses")
+            st.markdown("#### Achats - Hausses")
             if not movers_achat_e.empty:
                 up = movers_achat_e.sort_values("pct", ascending=False).head(int(topk))
                 st.dataframe(up, use_container_width=True, height=300)
+            else:
+                st.info("Pas assez de donnees d'achat pour cette fenetre.")
 
-            st.markdown("#### 🔻 Achats - Baisses")
+            st.markdown("#### Achats - Baisses")
             if not movers_achat_e.empty:
                 down = movers_achat_e.sort_values("pct", ascending=True).head(int(topk))
                 st.dataframe(down, use_container_width=True, height=300)
 
         with col5:
-            st.markdown("#### 🔺 Ventes - Hausses")
+            st.markdown("#### Ventes - Hausses")
             if not movers_vente_e.empty:
                 up = movers_vente_e.sort_values("pct", ascending=False).head(int(topk))
                 st.dataframe(up, use_container_width=True, height=300)
+            else:
+                st.info("Pas assez de donnees de vente pour cette fenetre.")
 
-            st.markdown("#### 🔻 Ventes - Baisses")
+            st.markdown("#### Ventes - Baisses")
             if not movers_vente_e.empty:
                 down = movers_vente_e.sort_values("pct", ascending=True).head(int(topk))
                 st.dataframe(down, use_container_width=True, height=300)
 
         st.divider()
-        st.markdown("### Détail par code moteur")
+        st.markdown("### Detail par code moteur")
 
         candidates = []
         if not movers_achat_e.empty:
@@ -2902,7 +3165,7 @@ def render_analyse():
         candidates = sorted(list(dict.fromkeys([c for c in candidates if c])))
 
         if candidates:
-            code = st.selectbox("Choisir un code moteur", candidates)
+            code = st.selectbox("Choisir un code moteur", candidates, key="tendances_code")
             achats_code = get_prix_achat_par_mois_code(n_months, code)
             ventes_code = get_prix_vente_par_mois_code(n_months, code)
             df_code = pd.merge(achats_code, ventes_code, on="mois", how="outer").sort_values("mois")
@@ -2913,25 +3176,38 @@ def render_analyse():
                                          line=dict(color=COLORS["primary"], width=3)))
                 fig.add_trace(go.Scatter(x=df_code["mois"], y=df_code["prix_vente_moy"], mode="lines+markers", name="Prix vente",
                                          line=dict(color=COLORS["success"], width=3)))
-                fig.update_layout(title=f"Évolution prix pour {code}", xaxis_title="Mois", yaxis_title="Prix (€)", template="plotly_white")
+                fig.update_layout(title=f"Evolution prix pour {code}", xaxis_title="Mois", yaxis_title="Prix (EUR)", template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
 
                 df_code["marge_moy_estimee"] = df_code["prix_vente_moy"] - df_code["prix_achat_moy"]
                 st.dataframe(df_code, use_container_width=True)
+        else:
+            st.info("Aucune donnee de tendance disponible. Essayez de reduire le minimum d'observations.")
 
     with tabs[3]:
-        st.markdown("### 📥 Offres reçues des casses")
+        st.markdown("### 📥 Offres recues des casses")
+
+        st.info("**Offres ciblees** : les casseurs proposent des moteurs en reponse a vos besoins identifies "
+                "(types recherches, urgents). "
+                "**Offres libres** : les casseurs proposent des moteurs ou lots sans lien direct avec vos besoins, "
+                "via description texte libre.")
 
         col6, col7 = st.columns(2)
         with col6:
-            st.markdown("#### Offres ciblées")
+            st.markdown("#### Offres ciblees")
             df_off = get_recent_click_offers(limit=200)
-            st.dataframe(df_off, use_container_width=True, height=400)
+            if df_off.empty:
+                st.info("Aucune offre ciblee recue.")
+            else:
+                st.dataframe(df_off, use_container_width=True, height=400)
 
         with col7:
             st.markdown("#### Offres libres")
             df_free = get_recent_free_offers(limit=200)
-            st.dataframe(df_free, use_container_width=True, height=400)
+            if df_free.empty:
+                st.info("Aucune offre libre recue.")
+            else:
+                st.dataframe(df_free, use_container_width=True, height=400)
 
 
 # =========================
@@ -2948,7 +3224,7 @@ def render_receptions():
     with col_s1:
         search = st.text_input("Rechercher (N reception, fournisseur)", key="rec_search", placeholder="Ex: 1234 ou DUPONT")
     with col_s2:
-        limit = st.selectbox("Nb max", [50, 100, 200, 500], index=1, key="rec_limit")
+        limit = st.selectbox("Nb max de receptions affichees", [50, 100, 200, 500], index=1, key="rec_limit")
 
     receptions = get_receptions_list(limit=limit, search=search)
 
@@ -2983,13 +3259,46 @@ def render_receptions():
     sel_rec = st.selectbox("Selectionner une reception", rec_ids, key="rec_detail_id")
 
     if sel_rec:
+        rec_row = receptions[receptions["n_reception"] == sel_rec]
+        if not rec_row.empty:
+            row = rec_row.iloc[0]
+            fournisseur_name = row.get("fournisseur", "N/A") or "N/A"
+            date_achat_val = row.get("date_achat", "")
+            montant_val = row.get("montant_ht", 0)
+            md_html(f"""
+            <div class='metric-card' style='margin-bottom:1rem;'>
+                <div style='display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;'>
+                    <div>
+                        <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>RECEPTION N°</p>
+                        <p style='color:#C41E3A;margin:0.3rem 0 0 0;font-size:1.8rem;font-weight:700;'>{sel_rec}</p>
+                    </div>
+                    <div>
+                        <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>FOURNISSEUR</p>
+                        <p style='color:#111827;margin:0.3rem 0 0 0;font-size:1.3rem;font-weight:700;'>{fournisseur_name}</p>
+                    </div>
+                    <div>
+                        <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>DATE</p>
+                        <p style='color:#111827;margin:0.3rem 0 0 0;font-size:1.1rem;font-weight:600;'>{date_achat_val}</p>
+                    </div>
+                    <div>
+                        <p style='color:#6b7280;margin:0;font-size:0.85rem;font-weight:600;'>MONTANT HT</p>
+                        <p style='color:#f59e0b;margin:0.3rem 0 0 0;font-size:1.1rem;font-weight:700;'>{float(montant_val) if pd.notna(montant_val) else 0:,.0f} EUR</p>
+                    </div>
+                </div>
+            </div>
+            """)
+
         tab_m, tab_b = st.tabs(["Moteurs recus", "Boites recues"])
         with tab_m:
             moteurs = get_reception_moteurs(sel_rec)
             if moteurs.empty:
                 st.info("Aucun moteur dans cette reception.")
             else:
-                st.dataframe(moteurs, use_container_width=True, height=300)
+                display_cols_m = ["n_moteur", "num_interne_moteur", "code_moteur", "num_serie",
+                                  "modele_saisi", "prix_achat_moteur", "etat_moteur",
+                                  "statut", "resa_client_moteur", "observations"]
+                display_cols_m = [c for c in display_cols_m if c in moteurs.columns]
+                st.dataframe(moteurs[display_cols_m], use_container_width=True, height=300)
         with tab_b:
             boites = get_reception_boites(sel_rec)
             if boites.empty:
@@ -3146,9 +3455,37 @@ def render_reservations():
 
     st.markdown("## 📋 Reservations clients")
 
-    tab_m, tab_b = st.tabs(["Moteurs reserves", "Boites reservees"])
+    tab_m, tab_b = st.tabs(["Moteurs", "Boites"])
 
     with tab_m:
+        # --- Nouvelle reservation moteur ---
+        st.markdown("### Nouvelle reservation moteur")
+        col_r1, col_r2, col_r3 = st.columns([2, 2, 1])
+        with col_r1:
+            search_mot_resa = st.text_input("Rechercher un moteur disponible (code, num serie...)", key="resa_page_mot_search", placeholder="Ex: K9K ou 12345")
+        with col_r2:
+            client_resa_mot = st.text_input("Nom du client", key="resa_page_mot_client", placeholder="Ex: SOCIETE DUPONT")
+
+        if search_mot_resa and search_mot_resa.strip():
+            dispo_moteurs = search_moteurs_db(search=search_mot_resa, statut_filter="Disponible", limit=50)
+            if dispo_moteurs.empty:
+                st.info("Aucun moteur disponible correspondant.")
+            else:
+                display_cols_m = ["n_moteur", "num_interne_moteur", "code_moteur", "num_serie", "modele_saisi", "marque", "energie", "prix_achat_moteur"]
+                display_cols_m = [c for c in display_cols_m if c in dispo_moteurs.columns]
+                st.dataframe(dispo_moteurs[display_cols_m], use_container_width=True, height=200)
+                with col_r3:
+                    sel_mot_resa = st.selectbox("N moteur", dispo_moteurs["n_moteur"].tolist(), key="resa_page_sel_mot")
+                    if client_resa_mot and client_resa_mot.strip():
+                        if st.button("Reserver", key="btn_resa_page_mot", use_container_width=True):
+                            reserve_moteur(sel_mot_resa, client_resa_mot)
+                            st.success(f"Moteur {sel_mot_resa} reserve pour {client_resa_mot}")
+                            st.rerun()
+
+        st.markdown("---")
+
+        # --- Reservations existantes ---
+        st.markdown("### Reservations en cours")
         moteurs = get_moteurs_reserves()
         if moteurs.empty:
             st.info("Aucun moteur reserve actuellement.")
@@ -3164,6 +3501,34 @@ def render_reservations():
                 st.rerun()
 
     with tab_b:
+        # --- Nouvelle reservation boite ---
+        st.markdown("### Nouvelle reservation boite")
+        col_r1b, col_r2b, col_r3b = st.columns([2, 2, 1])
+        with col_r1b:
+            search_bv_resa = st.text_input("Rechercher une boite disponible (ref, num interne...)", key="resa_page_bv_search", placeholder="Ex: JR5")
+        with col_r2b:
+            client_resa_bv = st.text_input("Nom du client", key="resa_page_bv_client", placeholder="Ex: SOCIETE DUPONT")
+
+        if search_bv_resa and search_bv_resa.strip():
+            dispo_boites = search_boites_db(search=search_bv_resa, statut_filter="Disponible", limit=50)
+            if dispo_boites.empty:
+                st.info("Aucune boite disponible correspondante.")
+            else:
+                display_cols_b = ["n_bv", "num_interne_bv", "ref_bv", "num_interne_moteur", "achat_bv", "prix_vte_bv", "emplacement"]
+                display_cols_b = [c for c in display_cols_b if c in dispo_boites.columns]
+                st.dataframe(dispo_boites[display_cols_b], use_container_width=True, height=200)
+                with col_r3b:
+                    sel_bv_resa = st.selectbox("N boite", dispo_boites["n_bv"].tolist(), key="resa_page_sel_bv")
+                    if client_resa_bv and client_resa_bv.strip():
+                        if st.button("Reserver", key="btn_resa_page_bv", use_container_width=True):
+                            reserve_boite(sel_bv_resa, client_resa_bv)
+                            st.success(f"Boite {sel_bv_resa} reservee pour {client_resa_bv}")
+                            st.rerun()
+
+        st.markdown("---")
+
+        # --- Reservations existantes ---
+        st.markdown("### Reservations en cours")
         boites = get_boites_reservees()
         if boites.empty:
             st.info("Aucune boite reservee actuellement.")
