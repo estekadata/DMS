@@ -1264,22 +1264,18 @@ def get_ventes_recents(n_months: int) -> pd.DataFrame:
     SELECT
       em.date_validation::date AS jour,
       to_char(em.date_validation, 'YYYY-MM') AS mois,
-      vd.type_nom AS code_moteur,
+      UPPER(m.code_moteur) AS code_moteur,
       vd.marque AS marque,
       vd.energie AS energie,
-      LEFT(tm.nom_type_moteur, 3) as type_moteur,
+      LEFT(UPPER(m.code_moteur), 3) AS type_moteur,
       COUNT(*) AS nb_vendus
     FROM tbl_expeditions_moteurs em
-    JOIN tbl_moteurs m
-      ON m.n_moteur = em.n_moteur
-    LEFT JOIN v_moteurs_dispo vd
-      ON vd.n_moteur = m.n_moteur
-    left join tbl_types_moteurs tm 
-      ON     m.n_type_moteur=tm.n_type_moteur 
+    JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+    LEFT JOIN v_moteurs_dispo vd ON vd.n_moteur = m.n_moteur
     WHERE em.date_validation >= NOW() - make_interval(months => :months)
-        AND vd.type_nom IS NOT NULL
-        AND TRIM(vd.type_nom) <> ''
-    GROUP BY jour, mois, vd.type_nom, vd.marque, vd.energie,LEFT(tm.nom_type_moteur, 3) 
+      AND m.code_moteur IS NOT NULL
+      AND TRIM(m.code_moteur) <> ''
+    GROUP BY jour, mois, UPPER(m.code_moteur), vd.marque, vd.energie
     """
     return sql_df(q, {"months": int(n_months)})
 
@@ -1580,37 +1576,33 @@ def get_prix_vente_par_mois_code(n_months: int, code: str) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False, ttl=300)
 def get_prix_par_mois_filtre(n_months: int, energie: str = "", marque: str = "") -> pd.DataFrame:
-    """Prix achat et vente mensuels filtrés par énergie et/ou marque."""
-    clauses_achat = ["r.date_achat >= NOW() - (:months || ' months')::interval",
-                     "m.prix_achat_moteur IS NOT NULL", "m.prix_achat_moteur > 0"]
+    """Prix achat et vente mensuels filtrés par énergie et/ou marque via v_moteurs_dispo."""
+    clauses = ["r.date_achat >= NOW() - (:months || ' months')::interval",
+               "vd.prix_achat_moteur IS NOT NULL", "vd.prix_achat_moteur > 0"]
     clauses_vente = ["em.date_validation >= NOW() - (:months || ' months')::interval",
                      "em.prix_vente_moteur IS NOT NULL", "em.prix_vente_moteur > 0"]
     params: dict = {"months": int(n_months)}
 
     if energie and energie.strip():
-        clauses_achat.append("UPPER(e.nom_energie) LIKE :energie")
-        clauses_vente.append("UPPER(e2.nom_energie) LIKE :energie")
-        params["energie"] = f"%{energie.strip().upper()}%"
+        clauses.append("UPPER(vd.energie) = UPPER(:energie)")
+        clauses_vente.append("UPPER(vd2.energie) = UPPER(:energie)")
+        params["energie"] = energie.strip()
     if marque and marque.strip():
-        clauses_achat.append("UPPER(ma.nom_marque) LIKE :marque")
-        clauses_vente.append("UPPER(ma2.nom_marque) LIKE :marque")
-        params["marque"] = f"%{marque.strip().upper()}%"
+        clauses.append("UPPER(vd.marque) = UPPER(:marque)")
+        clauses_vente.append("UPPER(vd2.marque) = UPPER(:marque)")
+        params["marque"] = marque.strip()
 
     q_achat = f"""
-    SELECT to_char(r.date_achat, 'YYYY-MM') AS mois, AVG(m.prix_achat_moteur) AS prix_achat_moy
-    FROM tbl_moteurs m
-    JOIN tbl_receptions r ON r.n_reception = m.num_reception
-    LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
-    LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
-    WHERE {' AND '.join(clauses_achat)}
+    SELECT to_char(r.date_achat, 'YYYY-MM') AS mois, AVG(vd.prix_achat_moteur) AS prix_achat_moy
+    FROM v_moteurs_dispo vd
+    JOIN tbl_receptions r ON r.n_reception = vd.num_reception
+    WHERE {' AND '.join(clauses)}
     GROUP BY mois ORDER BY mois
     """
     q_vente = f"""
     SELECT to_char(em.date_validation, 'YYYY-MM') AS mois, AVG(em.prix_vente_moteur) AS prix_vente_moy
     FROM tbl_expeditions_moteurs em
-    JOIN tbl_moteurs m2 ON m2.n_moteur = em.n_moteur
-    LEFT JOIN tbl_marques ma2 ON ma2.n_marque = m2.n_type_moteur
-    LEFT JOIN tbl_energie e2 ON e2.n_energie = m2.compo_moteur
+    JOIN v_moteurs_dispo vd2 ON vd2.n_moteur = em.n_moteur
     WHERE {' AND '.join(clauses_vente)}
     GROUP BY mois ORDER BY mois
     """
@@ -1659,14 +1651,14 @@ def get_stock_evolution(n_months: int = 12) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False, ttl=300)
 def get_distinct_energies() -> list:
-    df = sql_df("SELECT DISTINCT nom_energie FROM tbl_energie WHERE nom_energie IS NOT NULL ORDER BY nom_energie")
-    return df["nom_energie"].tolist() if not df.empty else []
+    df = sql_df("SELECT DISTINCT energie FROM v_moteurs_dispo WHERE energie IS NOT NULL AND TRIM(energie) <> '' ORDER BY energie")
+    return df["energie"].tolist() if not df.empty else []
 
 
 @st.cache_data(show_spinner=False, ttl=300)
 def get_distinct_marques() -> list:
-    df = sql_df("SELECT DISTINCT nom_marque FROM tbl_marques WHERE nom_marque IS NOT NULL AND TRIM(nom_marque) <> '' ORDER BY nom_marque")
-    return df["nom_marque"].tolist() if not df.empty else []
+    df = sql_df("SELECT DISTINCT marque FROM v_moteurs_dispo WHERE marque IS NOT NULL AND TRIM(marque) <> '' ORDER BY marque")
+    return df["marque"].tolist() if not df.empty else []
 
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -1814,11 +1806,17 @@ def get_reception_moteurs(n_reception: int) -> pd.DataFrame:
     SELECT
       m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
       m.modele_saisi, m.prix_achat_moteur, m.etat_moteur,
-      m.observations, m.resa_client_moteur, m.date_resa_moteur,
+      m.observations,
+      CASE
+        WHEN m.resa_client_moteur ~ '^\d+$' THEN COALESCE(c.societe, c.nom_contact, m.resa_client_moteur)
+        ELSE m.resa_client_moteur
+      END AS resa_client_moteur,
+      m.date_resa_moteur,
       CASE WHEN m.n_expedition IS NOT NULL OR m.archiver = true THEN 'Vendu/Archive'
            WHEN m.resa_client_moteur IS NOT NULL AND TRIM(m.resa_client_moteur) <> '' THEN 'Reserve'
            ELSE 'Disponible' END AS statut
     FROM tbl_moteurs m
+    LEFT JOIN tbl_clients c ON m.resa_client_moteur ~ '^\d+$' AND c.n_client = m.resa_client_moteur::integer
     WHERE m.num_reception = :nrec
     ORDER BY m.n_moteur
     """
@@ -1884,7 +1882,11 @@ def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter:
       m.modele_saisi, m.prix_achat_moteur,
       m.etat_moteur, m.etat_carter,
       m.observations,
-      m.resa_client_moteur, m.date_resa_moteur,
+      CASE
+        WHEN m.resa_client_moteur ~ '^\\d+$' THEN COALESCE(cl.societe, cl.nom_contact, m.resa_client_moteur)
+        ELSE m.resa_client_moteur
+      END AS resa_client_moteur,
+      m.date_resa_moteur,
       m.date_modif, m.utilisateur,
       m.n_expedition, m.archiver,
       ma.nom_marque AS marque,
@@ -1899,6 +1901,7 @@ def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter:
     LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
     LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
     LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    LEFT JOIN tbl_clients cl ON m.resa_client_moteur ~ '^\\d+$' AND cl.n_client = m.resa_client_moteur::integer
     {where}
     ORDER BY m.n_moteur DESC
     LIMIT :lim
@@ -1968,13 +1971,18 @@ def get_moteurs_reserves() -> pd.DataFrame:
     SELECT
       m.n_moteur, m.num_interne_moteur, m.code_moteur, m.num_serie,
       m.modele_saisi, m.prix_achat_moteur,
-      m.resa_client_moteur, m.date_resa_moteur,
+      CASE
+        WHEN m.resa_client_moteur ~ '^\d+$' THEN COALESCE(cl.societe, cl.nom_contact, m.resa_client_moteur)
+        ELSE m.resa_client_moteur
+      END AS resa_client_moteur,
+      m.date_resa_moteur,
       m.observations,
       ma.nom_marque AS marque,
       e.nom_energie AS energie
     FROM tbl_moteurs m
     LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
     LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    LEFT JOIN tbl_clients cl ON m.resa_client_moteur ~ '^\d+$' AND cl.n_client = m.resa_client_moteur::integer
     WHERE m.resa_client_moteur IS NOT NULL
       AND TRIM(m.resa_client_moteur) <> ''
       AND (m.n_expedition IS NULL)
@@ -3922,23 +3930,26 @@ def render_mise_a_jour_prix():
     md_html(
         """
         <div class='metric-card' style='margin-bottom: 1rem;'>
-            <h3 style='margin:0 0 0.5rem 0;'>📎 Fichiers Excel</h3>
-            <p style='margin:0; color:#6b7280;'>
-                Catalogue prix + export tbl MOTEURS pour le mapping.
+            <h3 style='margin:0 0 0.5rem 0;'>📎 Mode d'emploi</h3>
+            <ol style='margin:0.5rem 0 0 1.5rem; color:#374151; line-height:1.8;'>
+                <li><strong>Etape 1</strong> : Importer votre catalogue prix Excel (doit contenir une colonne "Type moteur")</li>
+                <li><strong>Etape 2</strong> : Importer le fichier tbl_MOTEURS.xlsx pour faire le lien entre vos types moteurs et les codes moteurs en base</li>
+                <li><strong>Etape 3</strong> : Ajuster les curseurs de marge ci-dessus selon votre strategie</li>
+                <li><strong>Etape 4</strong> : Consulter les prix d'achat proposes et telecharger le CSV</li>
+            </ol>
+            <p style='margin:0.5rem 0 0 0; color:#6b7280; font-size:0.9rem;'>
+                Le systeme calcule automatiquement un prix d'achat propose en fonction du prix de vente moyen sur 3 mois,
+                de l'urgence (forte demande = on peut payer plus) et du surstock (trop de stock = on baisse le prix).
             </p>
         </div>
         """
     )
 
-    file_cat = st.file_uploader("📄 Catalogue prix (Type moteur)", type=["xlsx"], key="maj_prix_cat")
-    file_mot = st.file_uploader("⚙️ tbl MOTEURS.xlsx", type=["xlsx"], key="maj_prix_mot")
-
-    with st.expander("🧪 Debug fichiers", expanded=False):
-        st.write("Catalogue:", None if file_cat is None else file_cat.name)
-        st.write("Moteurs:", None if file_mot is None else file_mot.name)
+    file_cat = st.file_uploader("Etape 1 - Catalogue prix (fichier Excel avec colonne 'Type moteur')", type=["xlsx"], key="maj_prix_cat")
+    file_mot = st.file_uploader("Etape 2 - tbl MOTEURS.xlsx (pour le mapping type moteur -> code moteur)", type=["xlsx"], key="maj_prix_mot")
 
     if file_cat is None:
-        st.info("Importe le catalogue prix pour continuer.")
+        st.info("Importez votre catalogue prix Excel pour commencer. Ce fichier doit contenir au minimum une colonne 'Type moteur'.")
         return
 
     try:
