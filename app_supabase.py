@@ -1665,7 +1665,7 @@ def get_distinct_energies() -> list:
 
 @st.cache_data(show_spinner=False, ttl=300)
 def get_distinct_marques() -> list:
-    df = sql_df("SELECT DISTINCT nom_marque FROM tbl_marques WHERE nom_marque IS NOT NULL AND selection_marque = true ORDER BY nom_marque")
+    df = sql_df("SELECT DISTINCT nom_marque FROM tbl_marques WHERE nom_marque IS NOT NULL AND TRIM(nom_marque) <> '' ORDER BY nom_marque")
     return df["nom_marque"].tolist() if not df.empty else []
 
 
