@@ -371,7 +371,7 @@ def check_password() -> bool:
     with col1:
         login = st.button("🔐 Se connecter (Admin)", type="primary", use_container_width=True)
     with col2:
-        login_casse = st.button("🔧 Accès Casse", use_container_width=True)
+        login_casse = st.button("🔧 Centres VHU", use_container_width=True)
 
     if login:
         admin_user = st.secrets.get("ADMIN_USER", "")
@@ -1022,7 +1022,7 @@ def render_home():
         if st.button("🎯", key="btn_besoins", use_container_width=True):
             set_page("besoins")
             st.rerun()
-        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Besoins</h4><p style='color: #6b7280; font-size:0.85rem;'>Besoins casses</p></div>")
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Besoins</h4><p style='color: #6b7280; font-size:0.85rem;'>Besoins centres VHU</p></div>")
 
     with c3:
         if st.button("📊", key="btn_analyse", use_container_width=True):
@@ -1088,7 +1088,7 @@ def render_home():
         if st.button("🛠️", key="btn_casse", use_container_width=True):
             set_page("casse")
             st.rerun()
-        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Acces Casse</h4><p style='color: #6b7280; font-size:0.85rem;'>Interface casses</p></div>")
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Centres VHU</h4><p style='color: #6b7280; font-size:0.85rem;'>Interface centres VHU</p></div>")
 
     with c12:
         md_html("<div style='text-align: center; margin-top: 0.5rem; opacity: 0.3;'><h4>&nbsp;</h4></div>")
@@ -2199,8 +2199,11 @@ def get_stock_dispo_breakdown_boites() -> pd.DataFrame:
 def get_rotation_stock(n_months: int = 6) -> pd.DataFrame:
     q = """
     WITH stock AS (
-      SELECT UPPER(code_moteur) AS code_moteur, COUNT(*) AS nb_stock
-      FROM v_moteurs_dispo
+      SELECT UPPER(code_moteur) AS code_moteur,
+             MAX(vd.marque) AS marque,
+             MAX(vd.type_nom) AS type_nom,
+             COUNT(*) AS nb_stock
+      FROM v_moteurs_dispo vd
       WHERE est_disponible = 1
         AND code_moteur IS NOT NULL AND TRIM(code_moteur) <> ''
       GROUP BY UPPER(code_moteur)
@@ -2215,6 +2218,8 @@ def get_rotation_stock(n_months: int = 6) -> pd.DataFrame:
     )
     SELECT
       s.code_moteur,
+      COALESCE(s.marque, '') AS marque,
+      COALESCE(s.type_nom, '') AS type_nom,
       s.nb_stock,
       COALESCE(v.nb_vendus, 0) AS nb_vendus,
       CASE WHEN COALESCE(v.nb_vendus, 0) = 0 THEN 999
@@ -2224,7 +2229,6 @@ def get_rotation_stock(n_months: int = 6) -> pd.DataFrame:
     LEFT JOIN ventes v ON v.code_moteur = s.code_moteur
     WHERE s.nb_stock > 0
     ORDER BY mois_rotation DESC
-    LIMIT 50
     """
     return sql_df(q, {"months": int(n_months)})
 
@@ -2482,7 +2486,7 @@ def render_casse():
             st.success("✅ Cache vidé !")
             st.rerun()
 
-    st.markdown("## 🛠️ Interface Casse - Mode Rapide")
+    st.markdown("## 🛠️ Interface Centres VHU - Mode Rapide")
 
     access_code = st.secrets.get("BREAKER_ACCESS_CODE", "")
     if not access_code:
@@ -2494,7 +2498,7 @@ def render_casse():
             """
             <div style='text-align: center; margin-bottom: 2rem;'>
                 <div style='font-size: 60px; margin-bottom: 1rem;'>🔧</div>
-                <h2 style='color: white; margin: 0;'>Interface Rapide Casse</h2>
+                <h2 style='color: white; margin: 0;'>Interface Rapide Centres VHU</h2>
                 <p style='color: rgba(255,255,255,0.9); font-size: 18px;'>Déclarez vos moteurs en 10 secondes</p>
             </div>
             """
@@ -2519,10 +2523,10 @@ def render_casse():
             saved_code = localstorage_get("breaker_code", "")
 
             breaker_name = st.text_input(
-                "🏢 Nom de votre casse",
+                "🏢 Nom de votre centre VHU",
                 key="breaker_name",
                 value=saved_name,
-                placeholder="Ex: Casse Auto 32",
+                placeholder="Ex: Centre VHU 32",
             )
             code = st.text_input(
                 "🔑 Code d'accès",
@@ -2535,7 +2539,7 @@ def render_casse():
             if st.button("✅ Accéder à l'interface", type="primary", use_container_width=True):
                 if hmac.compare_digest((code or "").strip(), access_code):
                     if not breaker_name.strip():
-                        st.error("Veuillez entrer le nom de votre casse")
+                        st.error("Veuillez entrer le nom de votre centre VHU")
                     else:
                         st.session_state["breaker_ok"] = True
                         st.session_state["breaker_id"] = get_or_create_breaker(breaker_name.strip())
@@ -2557,14 +2561,14 @@ def render_casse():
     # Si l'ID n'existe pas (session reset, refresh, etc.), on revient au login casse
     if breaker_id_raw is None:
         st.session_state["breaker_ok"] = False
-        st.warning("Session casse expirée, merci de vous reconnecter.")
+        st.warning("Session VHU expirée, merci de vous reconnecter.")
         st.rerun()
 
     try:
         breaker_id = int(breaker_id_raw)
     except Exception:
         st.session_state["breaker_ok"] = False
-        st.warning("Session casse invalide, merci de vous reconnecter.")
+        st.warning("Session VHU invalide, merci de vous reconnecter.")
         st.rerun()
 
     md_html(
@@ -3206,11 +3210,11 @@ def render_analyse():
             st.info("Aucune donnee de tendance disponible. Essayez de reduire le minimum d'observations.")
 
     with tabs[3]:
-        st.markdown("### 📥 Offres recues des casses")
+        st.markdown("### 📥 Offres recues des centres VHU")
 
-        st.info("**Offres ciblees** : les casseurs proposent des moteurs en reponse a vos besoins identifies "
+        st.info("**Offres ciblees** : les centres VHU proposent des moteurs en reponse a vos besoins identifies "
                 "(types recherches, urgents). "
-                "**Offres libres** : les casseurs proposent des moteurs ou lots sans lien direct avec vos besoins, "
+                "**Offres libres** : les centres VHU proposent des moteurs ou lots sans lien direct avec vos besoins, "
                 "via description texte libre.")
 
         col6, col7 = st.columns(2)
@@ -3608,6 +3612,28 @@ def render_historique():
 
             st.dataframe(receptions.drop(columns=["mois"], errors="ignore"), use_container_width=True, height=350)
 
+            st.markdown("#### Detail d'une reception")
+            rec_ids = sorted(receptions["n_reception"].tolist(), reverse=True)
+            sel_rec_h = st.selectbox("Selectionner une reception", rec_ids, key="histo_rec_detail")
+            if sel_rec_h:
+                rec_row = receptions[receptions["n_reception"] == sel_rec_h]
+                if not rec_row.empty:
+                    row = rec_row.iloc[0]
+                    st.caption(f"Reception **{sel_rec_h}** - {row.get('fournisseur', 'N/A')} - {row.get('date_achat', '')} - {float(row.get('montant_ht', 0) or 0):,.0f} EUR HT")
+                tab_hm, tab_hb = st.tabs(["Moteurs", "Boites"])
+                with tab_hm:
+                    moteurs_h = get_reception_moteurs(sel_rec_h)
+                    if moteurs_h.empty:
+                        st.info("Aucun moteur.")
+                    else:
+                        st.dataframe(moteurs_h, use_container_width=True, height=250)
+                with tab_hb:
+                    boites_h = get_reception_boites(sel_rec_h)
+                    if boites_h.empty:
+                        st.info("Aucune boite.")
+                    else:
+                        st.dataframe(boites_h, use_container_width=True, height=250)
+
     with tab_e:
         st.markdown("### Historique des expeditions")
         expeditions = get_historique_expeditions(n_months)
@@ -3638,8 +3664,31 @@ def render_historique():
 
             st.dataframe(expeditions.drop(columns=["mois"], errors="ignore"), use_container_width=True, height=350)
 
+            st.markdown("#### Detail d'une expedition")
+            exp_ids = sorted(expeditions["n_expedition"].tolist(), reverse=True)
+            sel_exp_h = st.selectbox("Selectionner une expedition", exp_ids, key="histo_exp_detail")
+            if sel_exp_h:
+                exp_row = expeditions[expeditions["n_expedition"] == sel_exp_h]
+                if not exp_row.empty:
+                    row = exp_row.iloc[0]
+                    st.caption(f"Expedition **{sel_exp_h}** - {row.get('client', 'N/A')} - {row.get('date_chargement', '')} - {float(row.get('montant_ht', 0) or 0):,.0f} EUR HT")
+                mot_exp = sql_df("""
+                    SELECT em.n_moteur, m.code_moteur, m.num_serie, m.modele_saisi, em.prix_vente_moteur
+                    FROM tbl_expeditions_moteurs em
+                    JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+                    WHERE em.n_expedition = :nexp
+                    ORDER BY em.n_moteur
+                """, {"nexp": int(sel_exp_h)})
+                if mot_exp.empty:
+                    st.info("Aucun moteur dans cette expedition.")
+                else:
+                    st.dataframe(mot_exp, use_container_width=True, height=250)
+
     with tab_s:
         st.markdown("### Statistiques avancees")
+        st.info("**Marge EUR** = Total prix vente - Total prix achat (moteurs avec prix achat et vente renseignes). "
+                "**% Marge** = Marge / Total prix vente x 100. "
+                "Seuls les moteurs ayant un prix d'achat ET un prix de vente > 0 sont pris en compte.")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -3700,30 +3749,52 @@ def render_historique():
 
         st.markdown("---")
         st.markdown("#### Rotation de stock")
+        st.info("**Rotation** = nb mois pour ecouler le stock au rythme de vente actuel. "
+                "999 = aucune vente sur la periode. Rotation < 3 = forte demande. Rotation > 12 = surstock.")
         rotation = get_rotation_stock(n_months)
         if not rotation.empty:
+            # Build display label
+            rotation["label"] = rotation.apply(
+                lambda r: f"{r['code_moteur']} ({r['marque']})" if r.get("marque") else r["code_moteur"], axis=1)
+
             col_r1, col_r2 = st.columns(2)
             with col_r1:
-                st.markdown("##### Stock a rotation lente (surstocke)")
-                slow = rotation[rotation["mois_rotation"] >= 6].head(20)
+                st.markdown("##### Rotation lente (surstock)")
+                slow = rotation[(rotation["mois_rotation"] >= 6) & (rotation["mois_rotation"] < 999)].sort_values("mois_rotation", ascending=False).head(30)
                 if not slow.empty:
-                    fig = px.bar(slow, x="code_moteur", y="mois_rotation", title="Codes a rotation lente",
-                                 labels={"code_moteur": "Code", "mois_rotation": "Mois pour ecouler"}, color="nb_stock")
-                    fig.update_layout(template="plotly_white")
+                    fig = px.bar(slow, x="label", y="mois_rotation", title="Codes a rotation lente (> 6 mois)",
+                                 labels={"label": "Code moteur", "mois_rotation": "Mois pour ecouler"}, color="nb_stock",
+                                 hover_data=["type_nom", "nb_vendus"])
+                    fig.update_layout(template="plotly_white", xaxis_tickangle=-45)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Aucun code en surstock.")
+
+                st.markdown("##### Sans vente (stock mort)")
+                dead = rotation[rotation["mois_rotation"] >= 999].sort_values("nb_stock", ascending=False).head(30)
+                if not dead.empty:
+                    fig = px.bar(dead, x="label", y="nb_stock", title=f"Codes sans vente depuis {n_months} mois",
+                                 labels={"label": "Code moteur", "nb_stock": "Quantite en stock"},
+                                 hover_data=["type_nom"])
+                    fig.update_layout(template="plotly_white", xaxis_tickangle=-45)
+                    st.plotly_chart(fig, use_container_width=True)
+
             with col_r2:
-                st.markdown("##### Stock a rotation rapide")
-                fast = rotation[rotation["mois_rotation"] < 6].sort_values("mois_rotation").head(20)
+                st.markdown("##### Rotation rapide (forte demande)")
+                fast = rotation[(rotation["mois_rotation"] < 6) & (rotation["mois_rotation"] > 0)].sort_values("mois_rotation").head(30)
                 if not fast.empty:
-                    fig = px.bar(fast, x="code_moteur", y="mois_rotation", title="Codes a rotation rapide",
-                                 labels={"code_moteur": "Code", "mois_rotation": "Mois pour ecouler"}, color="nb_vendus")
-                    fig.update_layout(template="plotly_white")
+                    fig = px.bar(fast, x="label", y="mois_rotation", title="Codes a rotation rapide (< 6 mois)",
+                                 labels={"label": "Code moteur", "mois_rotation": "Mois pour ecouler"}, color="nb_vendus",
+                                 hover_data=["type_nom", "nb_stock"])
+                    fig.update_layout(template="plotly_white", xaxis_tickangle=-45)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Aucun code a rotation rapide.")
-            st.dataframe(rotation, use_container_width=True, height=300)
+
+            st.markdown("##### Tableau complet")
+            display_cols_rot = ["code_moteur", "marque", "type_nom", "nb_stock", "nb_vendus", "mois_rotation"]
+            display_cols_rot = [c for c in display_cols_rot if c in rotation.columns]
+            st.dataframe(rotation[display_cols_rot].sort_values("mois_rotation"), use_container_width=True, height=400)
 
 
 # =========================
@@ -3895,6 +3966,71 @@ def render_pieces_detachees():
                 st.dataframe(mvts, use_container_width=True)
     else:
         st.info("Aucune reference disponible avec les filtres actuels.")
+
+    # --- Mouvement de stock (entree/sortie) ---
+    st.markdown("---")
+    st.markdown("### Entree / Sortie de stock")
+
+    col_e1, col_e2, col_e3, col_e4, col_e5 = st.columns([2, 2, 1, 1, 1])
+    with col_e1:
+        mvt_ref = st.selectbox("Reference", all_refs if all_refs else [""], key="pieces_mvt_add_ref")
+    with col_e2:
+        mvt_client = st.text_input("Client (pour sortie)", key="pieces_mvt_client", placeholder="Ex: DUPONT")
+    with col_e3:
+        mvt_qte = st.number_input("Quantite", min_value=-100, max_value=100, value=1, step=1, key="pieces_mvt_qte",
+                                   help="Positif = entree, Negatif = sortie")
+    with col_e4:
+        mvt_cat_row = filtered[filtered["reference"] == mvt_ref] if not filtered.empty and mvt_ref else pd.DataFrame()
+        mvt_cat = mvt_cat_row.iloc[0]["categorie"] if not mvt_cat_row.empty else ""
+        st.text_input("Categorie", value=mvt_cat, disabled=True, key="pieces_mvt_add_cat")
+    with col_e5:
+        md_html("<div style='height:28px;'></div>")
+        if mvt_ref and mvt_qte != 0:
+            if st.button("Valider mouvement", key="btn_mvt_pieces", use_container_width=True):
+                try:
+                    exec_sql("""
+                        INSERT INTO tbl_pieces_mouvements (reference, categorie, quantite, client, date_mouvement)
+                        VALUES (:ref, :cat, :qte, :cli, NOW())
+                    """, {"ref": mvt_ref, "cat": mvt_cat, "qte": int(mvt_qte), "cli": mvt_client.strip() or None})
+                    # Update stock
+                    exec_sql("""
+                        UPDATE tbl_pieces_detachees SET stock = stock + :qte
+                        WHERE reference = :ref AND categorie = :cat
+                    """, {"ref": mvt_ref, "cat": mvt_cat, "qte": int(mvt_qte)})
+                    st.cache_data.clear()
+                    st.success(f"Mouvement enregistre : {'+' if mvt_qte > 0 else ''}{mvt_qte} x {mvt_ref}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
+
+    # --- Pieces sans vente depuis X mois ---
+    st.markdown("---")
+    st.markdown("### Pieces sans mouvement recent")
+    mois_inactif = st.slider("Inactif depuis (mois)", 3, 24, 12, key="pieces_inactif_mois")
+    if not filtered.empty:
+        try:
+            last_mvt = sql_df("""
+                SELECT reference, categorie, MAX(date_mouvement) AS dernier_mouvement
+                FROM tbl_pieces_mouvements
+                GROUP BY reference, categorie
+            """)
+            if not last_mvt.empty:
+                merged = filtered.merge(last_mvt, on=["reference", "categorie"], how="left")
+                merged["dernier_mouvement"] = pd.to_datetime(merged["dernier_mouvement"], errors="coerce")
+                cutoff = pd.Timestamp.now() - pd.DateOffset(months=mois_inactif)
+                inactives = merged[(merged["dernier_mouvement"].isna()) | (merged["dernier_mouvement"] < cutoff)]
+                inactives = inactives[inactives["stock"] > 0].sort_values("stock", ascending=False)
+                if inactives.empty:
+                    st.success(f"Toutes les pieces en stock ont eu un mouvement dans les {mois_inactif} derniers mois.")
+                else:
+                    st.warning(f"**{len(inactives)} reference(s)** en stock sans mouvement depuis {mois_inactif} mois")
+                    display_cols_p = ["categorie", "reference", "marque", "modele", "stock", "dernier_mouvement"]
+                    display_cols_p = [c for c in display_cols_p if c in inactives.columns]
+                    st.dataframe(inactives[display_cols_p], use_container_width=True, height=300)
+            else:
+                st.info("Aucun historique de mouvement disponible.")
+        except Exception:
+            st.info("Table de mouvements non disponible.")
 
 
 def render_mise_a_jour_prix():
@@ -4144,7 +4280,7 @@ def main():
     st.sidebar.markdown("**Outils**")
     sidebar_pages_3 = {
         "🔩 Pieces Detachees": "pieces_detachees",
-        "🛠️ Acces Casse": "casse",
+        "🛠️ Centres VHU": "casse",
     }
     for label, pg in sidebar_pages_3.items():
         if st.sidebar.button(label, use_container_width=True, key=f"sb_{pg}"):
