@@ -3672,17 +3672,37 @@ def render_historique():
                 if not exp_row.empty:
                     row = exp_row.iloc[0]
                     st.caption(f"Expedition **{sel_exp_h}** - {row.get('client', 'N/A')} - {row.get('date_chargement', '')} - {float(row.get('montant_ht', 0) or 0):,.0f} EUR HT")
-                mot_exp = sql_df("""
-                    SELECT em.n_moteur, m.code_moteur, m.num_serie, m.modele_saisi, em.prix_vente_moteur
-                    FROM tbl_expeditions_moteurs em
-                    JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
-                    WHERE em.n_expedition = :nexp
-                    ORDER BY em.n_moteur
-                """, {"nexp": int(sel_exp_h)})
-                if mot_exp.empty:
-                    st.info("Aucun moteur dans cette expedition.")
-                else:
-                    st.dataframe(mot_exp, use_container_width=True, height=250)
+                tab_em, tab_eb = st.tabs(["Moteurs expedies", "Boites expediees"])
+                with tab_em:
+                    mot_exp = sql_df("""
+                        SELECT em.n_moteur, m.code_moteur, m.num_serie, m.modele_saisi,
+                               em.prix_vente_moteur, ma.nom_marque AS marque, e.nom_energie AS energie
+                        FROM tbl_expeditions_moteurs em
+                        JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+                        LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+                        LEFT JOIN tbl_marques ma ON ma.n_marque = tm.n_marque
+                        LEFT JOIN tbl_energie e ON e.n_energie = COALESCE(tm.n_energie, m.compo_moteur)
+                        WHERE em.n_expedition = :nexp
+                        ORDER BY em.n_moteur
+                    """, {"nexp": int(sel_exp_h)})
+                    if mot_exp.empty:
+                        st.info("Aucun moteur dans cette expedition.")
+                    else:
+                        st.markdown(f"**{len(mot_exp)} moteur(s)** - Total: {mot_exp['prix_vente_moteur'].sum():,.0f} EUR")
+                        st.dataframe(mot_exp, use_container_width=True, height=250)
+                with tab_eb:
+                    bv_exp = sql_df("""
+                        SELECT eb.n_bv, b.ref_bv, b.num_interne_bv, eb.prix_vente_bv
+                        FROM tbl_expeditions_boites eb
+                        LEFT JOIN tbl_boites b ON b.n_bv = eb.n_bv
+                        WHERE eb.n_expedition = :nexp
+                        ORDER BY eb.n_bv
+                    """, {"nexp": int(sel_exp_h)})
+                    if bv_exp.empty:
+                        st.info("Aucune boite dans cette expedition.")
+                    else:
+                        st.markdown(f"**{len(bv_exp)} boite(s)** - Total: {bv_exp['prix_vente_bv'].sum():,.0f} EUR")
+                        st.dataframe(bv_exp, use_container_width=True, height=250)
 
     with tab_s:
         st.markdown("### Statistiques avancees")
