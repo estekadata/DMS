@@ -1915,8 +1915,9 @@ def search_moteurs_db(search: str = "", marque_filter: str = "", energie_filter:
     FROM tbl_moteurs m
     LEFT JOIN tbl_receptions r ON r.n_reception = m.num_reception
     LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
-    LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
-    LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+    LEFT JOIN tbl_marques ma ON ma.n_marque = tm.n_marque
+    LEFT JOIN tbl_energie e ON e.n_energie = COALESCE(tm.n_energie, m.compo_moteur)
     {where}
     ORDER BY m.n_moteur DESC
     LIMIT :lim
@@ -1992,8 +1993,9 @@ def get_moteurs_reserves() -> pd.DataFrame:
       ma.nom_marque AS marque,
       e.nom_energie AS energie
     FROM tbl_moteurs m
-    LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur
-    LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur
+    LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+    LEFT JOIN tbl_marques ma ON ma.n_marque = tm.n_marque
+    LEFT JOIN tbl_energie e ON e.n_energie = COALESCE(tm.n_energie, m.compo_moteur)
     WHERE m.resa_client_moteur IS NOT NULL
       AND TRIM(m.resa_client_moteur) <> ''
       AND (m.n_expedition IS NULL)
