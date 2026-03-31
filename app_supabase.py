@@ -225,7 +225,7 @@ def inject_custom_css():
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
-        * Style pour la carte de recherche par plaque */
+        /* Style pour la carte de recherche par plaque */
         .plaque-card {
             background: white;
             border-radius: 16px;
@@ -285,39 +285,17 @@ def check_password() -> bool:
         section[data-testid="stSidebar"] { display: none; }
         .stApp { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important; }
         .main .block-container { max-width: 480px !important; padding-top: 3rem !important; }
-
         div[data-testid="stTextInput"] > div > div > input {
-            background-color: #f9fafb !important;
-            border: 2px solid #e5e7eb !important;
-            border-radius: 12px !important;
-            padding: 12px 16px !important;
-            font-size: 15px !important;
+            background-color: #f9fafb !important; border: 2px solid #e5e7eb !important;
+            border-radius: 12px !important; padding: 12px 16px !important; font-size: 15px !important;
         }
         div[data-testid="stTextInput"] > div > div > input:focus {
-            border-color: #C41E3A !important;
-            box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1) !important;
+            border-color: #C41E3A !important; box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1) !important;
         }
-        div[data-testid="stTextInput"] label {
-            color: #374151 !important;
-            font-weight: 600 !important;
-            font-size: 14px !important;
-            margin-bottom: 8px !important;
-        }
-        .stButton button {
-            border-radius: 10px !important;
-            padding: 10px 24px !important;
-            font-weight: 600 !important;
-            font-size: 15px !important;
-        }
-        .stButton button[kind="primary"] {
-            background: linear-gradient(135deg, #C41E3A 0%, #991B1E 100%) !important;
-            border: none !important;
-        }
-        .stButton button[kind="secondary"] {
-            background: white !important;
-            color: #374151 !important;
-            border: 2px solid #e5e7eb !important;
-        }
+        div[data-testid="stTextInput"] label { color: #374151 !important; font-weight: 600 !important; font-size: 14px !important; }
+        .stButton button { border-radius: 10px !important; padding: 10px 24px !important; font-weight: 600 !important; font-size: 15px !important; }
+        .stButton button[kind="primary"] { background: linear-gradient(135deg, #C41E3A 0%, #991B1E 100%) !important; border: none !important; }
+        .stButton button[kind="secondary"] { background: white !important; color: #374151 !important; border: 2px solid #e5e7eb !important; }
         </style>
         """
     )
@@ -329,91 +307,98 @@ def check_password() -> bool:
         """
         <div style='text-align: center; margin-bottom: 40px;'>
             <div style='font-size: 60px; margin-bottom: 16px;'>🚗</div>
-            <h1 style='
-                color: white;
-                font-size: 32px;
-                font-weight: 800;
-                margin: 0 0 12px 0;
-                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            '>Multirex Auto DMS</h1>
-            <p style='
-                color: rgba(255, 255, 255, 0.9);
-                font-size: 16px;
-                margin: 0;
-            '>Système de gestion intelligent</p>
+            <h1 style='color: white; font-size: 32px; font-weight: 800; margin: 0 0 12px 0;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);'>Multirex Auto DMS</h1>
+            <p style='color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 0;'>Système de gestion intelligent</p>
         </div>
         """
     )
 
     md_html(
         """
-            <h2 style='
-                color: #111827;
-                font-size: 24px;
-                font-weight: 700;
-                margin: 24px 0 8px 0;
-            '>Connexion Admin</h2>
-            <p style='
-                color: #6b7280;
-                font-size: 14px;
-                margin: 0;
-            '>Accédez à votre tableau de bord</p>
-        </div>
+        <h2 style='color: #111827; font-size: 24px; font-weight: 700; margin: 24px 0 8px 0;'>Connexion</h2>
+        <p style='color: #6b7280; font-size: 14px; margin: 0;'>Entrez vos identifiants</p>
         """
     )
 
-    user = st.text_input("Utilisateur", key="login_user", placeholder="IDENTIFIANT")
+    user = st.text_input("Email ou identifiant", key="login_user", placeholder="email@exemple.com")
     pwd = st.text_input("Mot de passe", type="password", key="login_pwd", placeholder="Votre mot de passe")
 
     md_html("<div style='height: 24px;'></div>")
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        login = st.button("🔐 Se connecter (Admin)", type="primary", use_container_width=True)
+        login = st.button("🔐 Se connecter", type="primary", use_container_width=True)
     with col2:
         login_casse = st.button("🔧 Centres VHU", use_container_width=True)
 
     if login:
-        admin_user = st.secrets.get("ADMIN_USER", "")
-        admin_pwd = st.secrets.get("ADMIN_PASSWORD", "")
+        authenticated = False
+        user_role = "admin"
+        user_email = user
+        user_nom = ""
 
-        if hmac.compare_digest(user, admin_user) and hmac.compare_digest(pwd, admin_pwd):
+        # Try dms_users table first
+        import hashlib
+        pwd_hash = hashlib.sha256(pwd.encode()).hexdigest()
+        try:
+            df = sql_df("""
+                SELECT id, email, nom, role FROM dms_users
+                WHERE email = :email AND password_hash = :pwd AND actif = true
+                LIMIT 1
+            """, {"email": user.strip(), "pwd": pwd_hash})
+            if not df.empty:
+                row = df.iloc[0]
+                authenticated = True
+                user_role = row["role"]
+                user_email = row["email"]
+                user_nom = row.get("nom", "")
+                try:
+                    exec_sql("UPDATE dms_users SET last_login = NOW() WHERE id = :uid", {"uid": int(row["id"])})
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Fallback: legacy admin from secrets.toml
+        if not authenticated:
+            admin_user = st.secrets.get("ADMIN_USER", "")
+            admin_pwd = st.secrets.get("ADMIN_PASSWORD", "")
+            if admin_user and admin_pwd and hmac.compare_digest(user, admin_user) and hmac.compare_digest(pwd, admin_pwd):
+                authenticated = True
+                user_role = "super_admin"
+                user_email = "admin"
+                user_nom = "Administrateur"
+
+        if authenticated:
             st.session_state["authenticated"] = True
-            st.session_state["mode"] = "admin"
-            st.session_state["page"] = "home"
-            st.success("✅ Connexion réussie !")
+            st.session_state["mode"] = "casse" if user_role == "vhu" else "admin"
+            st.session_state["page"] = "casse" if user_role == "vhu" else "home"
+            st.session_state["user_role"] = user_role
+            st.session_state["user_email"] = user_email
+            st.session_state["user_nom"] = user_nom
+            st.success("Connexion réussie !")
             st.rerun()
         else:
-            st.error("❌ Identifiants incorrects")
+            st.error("Identifiants incorrects")
 
     if login_casse:
         st.session_state["authenticated"] = True
         st.session_state["mode"] = "casse"
         st.session_state["page"] = "casse"
+        st.session_state["user_role"] = "vhu"
         st.rerun()
-
-    md_html("</div>")
 
     md_html(
         """
         <div style='text-align: center; margin-top: 32px;'>
-            <div style='
-                display: inline-flex;
-                gap: 12px;
-                background: rgba(255, 255, 255, 0.95);
-                padding: 12px 24px;
-                border-radius: 50px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-            '>
+            <div style='display: inline-flex; gap: 12px; background: rgba(255, 255, 255, 0.95);
+                padding: 12px 24px; border-radius: 50px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);'>
                 <span style='color: #C41E3A; font-weight: 600; font-size: 13px;'>📊 Analytics</span>
                 <span style='color: #C41E3A; font-weight: 600; font-size: 13px;'>⚡ Temps réel</span>
                 <span style='color: #C41E3A; font-weight: 600; font-size: 13px;'>🔒 Sécurisé</span>
             </div>
-            <p style='
-                color: rgba(255, 255, 255, 0.8);
-                margin-top: 24px;
-                font-size: 13px;
-            '>Multirex Auto © 2026</p>
+            <p style='color: rgba(255, 255, 255, 0.8); margin-top: 24px; font-size: 13px;'>Multirex Auto © 2025</p>
         </div>
         """
     )
@@ -584,6 +569,34 @@ def ensure_breaker_tables():
     ]:
         add_column_if_missing("breaker_click_offers", col)
         add_column_if_missing("breaker_free_offers", col)
+
+
+def ensure_users_table():
+    exec_sql("""
+    CREATE TABLE IF NOT EXISTS public.dms_users (
+        id BIGSERIAL PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        nom TEXT,
+        role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('super_admin', 'admin', 'vhu')),
+        actif BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_login TIMESTAMPTZ
+    );
+    """)
+    # Create default super_admin if none exists
+    df = sql_df("SELECT COUNT(*) AS n FROM dms_users WHERE role = 'super_admin'")
+    if df.iloc[0]["n"] == 0:
+        import hashlib
+        pwd_hash = hashlib.sha256("admin123".encode()).hexdigest()
+        try:
+            exec_sql("""
+            INSERT INTO dms_users (email, password_hash, nom, role)
+            VALUES ('admin@multirex.fr', :pwd, 'Administrateur', 'super_admin')
+            ON CONFLICT (email) DO NOTHING
+            """, {"pwd": pwd_hash})
+        except Exception:
+            pass
 
 
 def get_or_create_breaker(name: str) -> int:
@@ -1034,7 +1047,7 @@ def render_home():
         if st.button("💶", key="btn_prix", use_container_width=True):
             set_page("mise_a_jour_prix")
             st.rerun()
-        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Mise a jour prix</h4><p style='color: #6b7280; font-size:0.85rem;'>Propositions achat</p></div>")
+        md_html("<div style='text-align: center; margin-top: 0.5rem;'><h4>Mise à jour prix</h4><p style='color: #6b7280; font-size:0.85rem;'>Propositions achat</p></div>")
 
     md_html("<br>")
 
@@ -3239,7 +3252,7 @@ def render_analyse():
 # Render: Receptions
 # =========================
 def render_receptions():
-    if st.button("Retour a l'accueil", use_container_width=False, key="back_receptions"):
+    if st.button("Retour à l'accueil", use_container_width=False, key="back_receptions"):
         set_page("home")
         st.rerun()
 
@@ -3336,7 +3349,7 @@ def render_receptions():
 # Render: Motor Identification
 # =========================
 def render_identification_moteurs():
-    if st.button("Retour a l'accueil", use_container_width=False, key="back_id_moteurs"):
+    if st.button("Retour à l'accueil", use_container_width=False, key="back_id_moteurs"):
         set_page("home")
         st.rerun()
 
@@ -3407,7 +3420,7 @@ def render_identification_moteurs():
 # Render: Gearbox Identification
 # =========================
 def render_identification_boites():
-    if st.button("Retour a l'accueil", use_container_width=False, key="back_id_boites"):
+    if st.button("Retour à l'accueil", use_container_width=False, key="back_id_boites"):
         set_page("home")
         st.rerun()
 
@@ -3474,7 +3487,7 @@ def render_identification_boites():
 # Render: Reservations
 # =========================
 def render_reservations():
-    if st.button("Retour a l'accueil", use_container_width=False, key="back_resa"):
+    if st.button("Retour à l'accueil", use_container_width=False, key="back_resa"):
         set_page("home")
         st.rerun()
 
@@ -3573,7 +3586,7 @@ def render_reservations():
 # Render: History
 # =========================
 def render_historique():
-    if st.button("Retour a l'accueil", use_container_width=False, key="back_histo"):
+    if st.button("Retour à l'accueil", use_container_width=False, key="back_histo"):
         set_page("home")
         st.rerun()
 
@@ -3821,7 +3834,7 @@ def render_historique():
 # Render: Pieces Detachees
 # =========================
 def render_pieces_detachees():
-    if st.button("Retour a l'accueil", use_container_width=False, key="back_pieces"):
+    if st.button("Retour à l'accueil", use_container_width=False, key="back_pieces"):
         set_page("home")
         st.rerun()
 
@@ -4231,6 +4244,81 @@ def render_mise_a_jour_prix():
     st.download_button("⬇️ Télécharger CSV (propositions)", data=csv, file_name="propositions_prix_achat.csv", mime="text/csv")
 
 
+def render_admin_users():
+    if st.session_state.get("user_role") != "super_admin":
+        st.error("Accès réservé aux super administrateurs.")
+        return
+
+    if st.button("⬅ Retour à l'accueil", use_container_width=False):
+        set_page("home")
+        st.rerun()
+
+    st.markdown("## 👥 Gestion des utilisateurs")
+
+    users = sql_df("SELECT id, email, nom, role, actif, created_at, last_login FROM dms_users ORDER BY id")
+
+    if not users.empty:
+        st.dataframe(users, use_container_width=True, height=300)
+
+    st.markdown("---")
+    st.markdown("### Ajouter un utilisateur")
+
+    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+    with col1:
+        new_email = st.text_input("Email", key="new_user_email", placeholder="email@exemple.com")
+    with col2:
+        new_nom = st.text_input("Nom", key="new_user_nom", placeholder="Jean Dupont")
+    with col3:
+        new_role = st.selectbox("Rôle", ["admin", "vhu", "super_admin"], key="new_user_role")
+    with col4:
+        new_pwd = st.text_input("Mot de passe", type="password", key="new_user_pwd")
+
+    if st.button("Créer l'utilisateur", key="btn_create_user"):
+        if not new_email or not new_pwd:
+            st.error("Email et mot de passe requis.")
+        else:
+            import hashlib
+            pwd_hash = hashlib.sha256(new_pwd.encode()).hexdigest()
+            try:
+                exec_sql("""
+                    INSERT INTO dms_users (email, password_hash, nom, role)
+                    VALUES (:email, :pwd, :nom, :role)
+                """, {"email": new_email.strip(), "pwd": pwd_hash, "nom": new_nom.strip(), "role": new_role})
+                st.cache_data.clear()
+                st.success(f"Utilisateur {new_email} créé avec le rôle {new_role}.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erreur : {e}")
+
+    if not users.empty:
+        st.markdown("---")
+        st.markdown("### Modifier / Désactiver un utilisateur")
+        sel_user = st.selectbox("Utilisateur", users["email"].tolist(), key="edit_user_sel")
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("Désactiver", key="btn_deactivate_user"):
+                exec_sql("UPDATE dms_users SET actif = false WHERE email = :email", {"email": sel_user})
+                st.cache_data.clear()
+                st.success(f"{sel_user} désactivé.")
+                st.rerun()
+        with col_b:
+            if st.button("Réactiver", key="btn_reactivate_user"):
+                exec_sql("UPDATE dms_users SET actif = true WHERE email = :email", {"email": sel_user})
+                st.cache_data.clear()
+                st.success(f"{sel_user} réactivé.")
+                st.rerun()
+
+        st.markdown("#### Changer le mot de passe")
+        new_pwd_change = st.text_input("Nouveau mot de passe", type="password", key="change_user_pwd")
+        if st.button("Changer le mot de passe", key="btn_change_pwd"):
+            if new_pwd_change:
+                import hashlib
+                pwd_hash = hashlib.sha256(new_pwd_change.encode()).hexdigest()
+                exec_sql("UPDATE dms_users SET password_hash = :pwd WHERE email = :email", {"email": sel_user, "pwd": pwd_hash})
+                st.success(f"Mot de passe de {sel_user} mis à jour.")
+
+
 # =========================
 # INIT DB (PERF) - run once
 # =========================
@@ -4240,6 +4328,7 @@ def init_db_once() -> bool:
     assert_db_ready()
     ensure_stock_views()
     ensure_breaker_tables()
+    ensure_users_table()
     return True
 
 
@@ -4262,6 +4351,10 @@ def main():
 
     with st.sidebar:
         md_html("<h2 style='text-align: center; margin-bottom: 2rem;'>MULTIREX AUTO</h2>")
+        user_nom = st.session_state.get("user_nom", "")
+        user_role = st.session_state.get("user_role", "admin")
+        role_label = {"super_admin": "Super Admin", "admin": "Admin", "vhu": "VHU"}.get(user_role, user_role)
+        md_html(f"<p style='text-align:center;font-size:0.85rem;opacity:0.9;margin:0;'>{user_nom or ''} ({role_label})</p>")
         st.divider()
         logout_button()
 
@@ -4277,7 +4370,7 @@ def main():
         "📈 Ventes": "ventes",
         "🎯 Besoins": "besoins",
         "📊 Analyse": "analyse",
-        "💶 Mise a jour prix": "mise_a_jour_prix",
+        "💶 Mise à jour prix": "mise_a_jour_prix",
     }
     for label, pg in sidebar_pages_1.items():
         if st.sidebar.button(label, use_container_width=True, key=f"sb_{pg}"):
@@ -4305,6 +4398,12 @@ def main():
     for label, pg in sidebar_pages_3.items():
         if st.sidebar.button(label, use_container_width=True, key=f"sb_{pg}"):
             set_page(pg)
+            st.rerun()
+
+    if st.session_state.get("user_role") == "super_admin":
+        st.sidebar.markdown("**Administration**")
+        if st.sidebar.button("👥 Utilisateurs", use_container_width=True, key="sb_admin_users"):
+            set_page("admin_users")
             st.rerun()
 
     md_html(
@@ -4377,6 +4476,7 @@ def main():
         "identification_boites": render_identification_boites,
         "reservations": render_reservations,
         "historique": render_historique,
+        "admin_users": render_admin_users,
     }
 
     renderer = page_map.get(page)
