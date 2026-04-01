@@ -8,10 +8,15 @@ import { Input } from "@/components/ui/input";
 
 type Besoin = {
   code_moteur: string;
-  marque?: string;
-  energie?: string;
-  nb_en_stock: number;
-  nb_commandes_actives: number;
+  type_moteur: string;
+  marque: string;
+  energie: string;
+  type_nom: string;
+  type_modele: string;
+  type_annee: string;
+  nb_vendus_3m: number;
+  nb_stock_dispo: number;
+  prix_moy_achat_3m: number | null;
   delta: number;
 };
 
@@ -27,30 +32,20 @@ export default function BesoinsPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("v_besoins_moteurs")
-        .select("code_moteur, marque, energie, nb_en_stock, nb_commandes_actives, delta")
-        .order("delta", { ascending: true })
-        .limit(500);
+      const { data, error } = await supabase.rpc("get_besoins_moteurs", {
+        p_limit: 500,
+      });
 
-      if (error) {
-        // Fallback: compute from stock vs orders
-        const { data: fallback } = await supabase
-          .from("v_moteurs_dispo")
-          .select("code_moteur, marque, energie, est_disponible")
-          .limit(1000);
-
-        if (fallback) {
-          const grouped: Record<string, Besoin> = {};
-          fallback.forEach((m: any) => {
-            const k = m.code_moteur || "INCONNU";
-            if (!grouped[k]) grouped[k] = { code_moteur: k, marque: m.marque, energie: m.energie, nb_en_stock: 0, nb_commandes_actives: 0, delta: 0 };
-            if (m.est_disponible === 1) grouped[k].nb_en_stock++;
-          });
-          setBesoins(Object.values(grouped));
-        }
+      if (!error && data) {
+        setBesoins(
+          (data as Omit<Besoin, "delta">[]).map((r) => ({
+            ...r,
+            delta: r.nb_stock_dispo - r.nb_vendus_3m,
+          }))
+        );
       } else {
-        setBesoins(data || []);
+        console.error("get_besoins_moteurs error:", error);
+        setBesoins([]);
       }
       setLoading(false);
     }
@@ -64,7 +59,11 @@ export default function BesoinsPage() {
       return true;
     })
     .filter((b) =>
-      search ? b.code_moteur.toLowerCase().includes(search.toLowerCase()) : true
+      search
+        ? b.code_moteur.toLowerCase().includes(search.toLowerCase()) ||
+          b.marque?.toLowerCase().includes(search.toLowerCase()) ||
+          b.type_nom?.toLowerCase().includes(search.toLowerCase())
+        : true
     );
 
   const nbManque = besoins.filter((b) => b.delta < 0).length;
@@ -72,25 +71,37 @@ export default function BesoinsPage() {
 
   return (
     <div>
-      <PageHeader title="Analyse des besoins" icon="🎯" description="Besoins et surstock par référence moteur" />
+      <PageHeader
+        title="Analyse des besoins"
+        icon="🎯"
+        description="Besoins et surstock par référence moteur (ventes 3 derniers mois vs stock dispo)"
+      />
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">En manque</p>
+            <p className="text-xs text-gray-500 font-semibold uppercase">
+              En manque
+            </p>
             <p className="text-2xl font-bold text-red-600">{nbManque}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">En surstock</p>
+            <p className="text-xs text-gray-500 font-semibold uppercase">
+              En surstock
+            </p>
             <p className="text-2xl font-bold text-blue-600">{nbSurstock}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">Total références</p>
-            <p className="text-2xl font-bold text-gray-700">{besoins.length}</p>
+            <p className="text-xs text-gray-500 font-semibold uppercase">
+              Total références
+            </p>
+            <p className="text-2xl font-bold text-gray-700">
+              {besoins.length}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -101,14 +112,18 @@ export default function BesoinsPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium transition ${tab === t ? "bg-[#C41E3A] text-white" : "text-gray-600 hover:bg-gray-50"}`}
+              className={`px-4 py-2 text-sm font-medium transition ${
+                tab === t
+                  ? "bg-[#C41E3A] text-white"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
             >
               {t}
             </button>
           ))}
         </div>
         <Input
-          placeholder="Filtrer par code moteur..."
+          placeholder="Filtrer par code, marque, type..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
@@ -124,21 +139,36 @@ export default function BesoinsPage() {
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
                   <th className="px-4 py-3 text-left">Code moteur</th>
+                  <th className="px-4 py-3 text-left">Type</th>
                   <th className="px-4 py-3 text-left">Marque</th>
                   <th className="px-4 py-3 text-left">Énergie</th>
-                  <th className="px-4 py-3 text-center">En stock</th>
-                  <th className="px-4 py-3 text-center">Commandes actives</th>
+                  <th className="px-4 py-3 text-center">Vendus (3 mois)</th>
+                  <th className="px-4 py-3 text-center">Stock dispo</th>
                   <th className="px-4 py-3 text-center">Delta</th>
+                  <th className="px-4 py-3 text-right">Prix moy. achat</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((b) => (
                   <tr key={b.code_moteur} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-semibold">{b.code_moteur}</td>
-                    <td className="px-4 py-3 text-gray-600">{b.marque || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{b.energie || "—"}</td>
-                    <td className="px-4 py-3 text-center tabular-nums">{b.nb_en_stock}</td>
-                    <td className="px-4 py-3 text-center tabular-nums">{b.nb_commandes_actives}</td>
+                    <td className="px-4 py-3 font-semibold">
+                      {b.code_moteur}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {b.type_moteur || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {b.marque || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {b.energie || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center tabular-nums">
+                      {b.nb_vendus_3m}
+                    </td>
+                    <td className="px-4 py-3 text-center tabular-nums">
+                      {b.nb_stock_dispo}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <Badge
                         className={
@@ -151,6 +181,11 @@ export default function BesoinsPage() {
                       >
                         {b.delta > 0 ? `+${b.delta}` : b.delta}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-gray-600">
+                      {b.prix_moy_achat_3m != null
+                        ? `${b.prix_moy_achat_3m.toFixed(0)} €`
+                        : "—"}
                     </td>
                   </tr>
                 ))}
