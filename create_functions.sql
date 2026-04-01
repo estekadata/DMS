@@ -58,52 +58,59 @@ SELECT json_build_object(
 $$ LANGUAGE sql;
 
 -- 6. get_besoins_moteurs
+-- Groupe par nom_type_moteur (ex: K9K 764, F9Q 674) depuis tbl_types_moteurs
 CREATE OR REPLACE FUNCTION get_besoins_moteurs(p_limit int DEFAULT 100)
 RETURNS TABLE(
   code_moteur text,
   type_moteur text,
   marque text,
   energie text,
-  type_nom text,
-  type_modele text,
-  type_annee text,
   nb_vendus_3m bigint,
   nb_stock_dispo bigint,
   prix_moy_achat_3m numeric
 ) AS $$
 WITH ventes AS (
-    SELECT UPPER(m.code_moteur) AS code_moteur, m.n_type_moteur, COUNT(*) AS nb_vendus_3m
+    SELECT tm.nom_type_moteur, COUNT(*) AS nb_vendus_3m
     FROM tbl_expeditions_moteurs em
     JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+    JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
     WHERE em.date_validation >= NOW() - INTERVAL '3 months'
-      AND m.code_moteur IS NOT NULL AND TRIM(m.code_moteur) <> ''
-    GROUP BY UPPER(m.code_moteur), m.n_type_moteur
+      AND tm.nom_type_moteur IS NOT NULL AND TRIM(tm.nom_type_moteur) <> ''
+    GROUP BY tm.nom_type_moteur
 ),
 achats AS (
-    SELECT UPPER(m.code_moteur) AS code_moteur,
+    SELECT tm.nom_type_moteur,
            AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months' THEN m.prix_achat_moteur END) AS prix_moy_3m
     FROM tbl_moteurs m
     JOIN tbl_receptions r ON r.n_reception = m.num_reception
+    JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
     WHERE m.prix_achat_moteur IS NOT NULL AND r.date_achat IS NOT NULL
-    GROUP BY UPPER(m.code_moteur)
+    GROUP BY tm.nom_type_moteur
 ),
-stock_dispo AS (
-    SELECT UPPER(code_moteur) AS code_moteur, MAX(marque) AS marque, MAX(energie) AS energie,
-           MAX(type_nom) AS type_nom, MAX(type_modele) AS type_modele, MAX(type_annee) AS type_annee,
+stock AS (
+    SELECT tm.nom_type_moteur,
+           MAX(ma.nom_marque) AS marque,
+           MAX(en.nom_energie) AS energie,
            COUNT(*) AS nb_stock_dispo
-    FROM v_moteurs_dispo
-    WHERE est_disponible = 1 AND (archiver IS NULL OR archiver = False)
-    GROUP BY UPPER(code_moteur)
+    FROM tbl_moteurs m
+    JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+    LEFT JOIN tbl_marques ma ON ma.n_marque = tm.n_marque
+    LEFT JOIN tbl_energie en ON en.n_energie = COALESCE(tm.n_energie, m.compo_moteur)
+    WHERE m.n_expedition IS NULL
+      AND (m.archiver IS NULL OR m.archiver = false)
+      AND (m.resa_client_moteur IS NULL OR TRIM(m.resa_client_moteur) = '')
+    GROUP BY tm.nom_type_moteur
 )
-SELECT v.code_moteur, LEFT(COALESCE(s.type_nom, ''), 3) AS type_moteur,
-       COALESCE(s.marque, '') AS marque, COALESCE(s.energie, '') AS energie,
-       COALESCE(s.type_nom, '') AS type_nom, COALESCE(s.type_modele, '') AS type_modele,
-       COALESCE(s.type_annee, '') AS type_annee,
-       v.nb_vendus_3m, COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
+SELECT v.nom_type_moteur AS code_moteur,
+       LEFT(v.nom_type_moteur, 3) AS type_moteur,
+       COALESCE(s.marque, '') AS marque,
+       COALESCE(s.energie, '') AS energie,
+       v.nb_vendus_3m,
+       COALESCE(s.nb_stock_dispo, 0) AS nb_stock_dispo,
        ROUND(a.prix_moy_3m, 2) AS prix_moy_achat_3m
 FROM ventes v
-LEFT JOIN achats a ON a.code_moteur = v.code_moteur
-LEFT JOIN stock_dispo s ON s.code_moteur = v.code_moteur
+LEFT JOIN achats a ON a.nom_type_moteur = v.nom_type_moteur
+LEFT JOIN stock s ON s.nom_type_moteur = v.nom_type_moteur
 ORDER BY v.nb_vendus_3m DESC
 LIMIT p_limit;
 $$ LANGUAGE sql;
