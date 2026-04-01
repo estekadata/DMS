@@ -134,7 +134,8 @@ RETURNS TABLE(
   fournisseur text,
   date_achat timestamp
 ) AS $$
-SELECT m.n_moteur, m.code_moteur, m.num_serie, m.modele_saisi, m.prix_achat_moteur,
+SELECT m.n_moteur, COALESCE(tm.nom_type_moteur, m.code_moteur) AS code_moteur,
+       m.num_serie, m.modele_saisi, m.prix_achat_moteur,
        ma.nom_marque AS marque, e.nom_energie AS energie,
        CASE WHEN m.n_expedition IS NOT NULL OR m.archiver = true THEN 'Vendu/Archivé'
             WHEN m.resa_client_moteur IS NOT NULL AND TRIM(m.resa_client_moteur) <> '' THEN 'Réservé'
@@ -148,7 +149,7 @@ LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
 LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
 LEFT JOIN tbl_marques ma ON ma.n_marque = tm.n_marque
 LEFT JOIN tbl_energie e ON e.n_energie = COALESCE(tm.n_energie, m.compo_moteur)
-WHERE (p_search = '' OR UPPER(m.code_moteur) LIKE '%' || UPPER(p_search) || '%'
+WHERE (p_search = '' OR UPPER(COALESCE(tm.nom_type_moteur, m.code_moteur)) LIKE '%' || UPPER(p_search) || '%'
        OR UPPER(m.num_serie) LIKE '%' || UPPER(p_search) || '%')
   AND (p_statut = '' OR p_statut = 'Tous'
        OR (p_statut = 'Disponible' AND m.n_expedition IS NULL AND (m.archiver IS NULL OR m.archiver = false) AND (m.resa_client_moteur IS NULL OR TRIM(m.resa_client_moteur) = ''))

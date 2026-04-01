@@ -373,19 +373,19 @@ COMMENT ON TABLE tbl_pieces_mouvements IS 'Historique des mouvements de pieces d
 -- ============================================
 
 CREATE VIEW v_moteurs_dispo AS
-SELECT 
+SELECT
     m.*,
     ma.nom_marque AS marque,
     e.nom_energie AS energie,
-    -- Type moteur info (à ajuster selon vos données)
-    m.n_type_moteur::TEXT AS type_nom,
+    tm.nom_type_moteur AS type_nom,
     m.modele_saisi AS type_modele,
     EXTRACT(YEAR FROM r.date_achat)::TEXT AS type_annee,
-    CASE 
+    r.date_achat AS date_entree_stock,
+    CASE
         WHEN m.archiver = TRUE THEN 0
         WHEN m.n_expedition IS NOT NULL THEN 0
         WHEN EXISTS (
-            SELECT 1 FROM tbl_expeditions_moteurs em 
+            SELECT 1 FROM tbl_expeditions_moteurs em
             WHERE em.n_moteur = m.n_moteur
         ) THEN 0
         ELSE 1
@@ -393,8 +393,9 @@ SELECT
 FROM tbl_moteurs m
 LEFT JOIN tbl_receptions r ON r.n_reception = m.num_reception
 LEFT JOIN tbl_fournisseurs f ON f.n_fournisseur = r.n_fournisseur
-LEFT JOIN tbl_marques ma ON ma.n_marque = m.n_type_moteur  -- À ajuster selon mapping réel
-LEFT JOIN tbl_energie e ON e.n_energie = m.compo_moteur;   -- À ajuster selon mapping réel
+LEFT JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+LEFT JOIN tbl_marques ma ON ma.n_marque = tm.n_marque
+LEFT JOIN tbl_energie e ON e.n_energie = COALESCE(tm.n_energie, m.compo_moteur);
 
 CREATE VIEW v_boites_dispo AS
 SELECT 
