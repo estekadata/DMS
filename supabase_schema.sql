@@ -377,7 +377,7 @@ SELECT
     m.*,
     ma.nom_marque AS marque,
     e.nom_energie AS energie,
-    tm.nom_type_moteur AS type_nom,
+    tm.nom_type_moteur AS nom_type_moteur,
     m.modele_saisi AS type_modele,
     EXTRACT(YEAR FROM r.date_achat)::TEXT AS type_annee,
     r.date_achat AS date_entree_stock,
