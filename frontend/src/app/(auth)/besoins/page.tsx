@@ -23,9 +23,18 @@ type Besoin = {
 const TABS = ["En manque", "En surstock", "Tout voir"] as const;
 type Tab = (typeof TABS)[number];
 
+const PERIODS = [
+  { label: "1 mois", value: 1 },
+  { label: "3 mois", value: 3 },
+  { label: "6 mois", value: 6 },
+  { label: "12 mois", value: 12 },
+  { label: "24 mois", value: 24 },
+];
+
 export default function BesoinsPage() {
   const [tab, setTab] = useState<Tab>("En manque");
   const [search, setSearch] = useState("");
+  const [months, setMonths] = useState(3);
   const [besoins, setBesoins] = useState<Besoin[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +42,8 @@ export default function BesoinsPage() {
     async function load() {
       setLoading(true);
       const { data, error } = await supabase.rpc("get_besoins_moteurs", {
-        p_limit: 500,
+        p_limit: 5000,
+        p_months: months,
       });
 
       if (!error && data) {
@@ -50,7 +60,7 @@ export default function BesoinsPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [months]);
 
   const filtered = besoins
     .filter((b) => {
@@ -73,49 +83,60 @@ export default function BesoinsPage() {
     <div>
       <PageHeader
         title="Analyse des besoins"
-        icon="🎯"
-        description="Besoins et surstock par référence moteur (ventes 3 derniers mois vs stock dispo)"
+        description={`Besoins et surstock par référence moteur (ventes ${months} derniers mois vs stock dispo)`}
       />
+
+      {/* Period selector */}
+      <div className="flex items-center gap-2 mb-6">
+        <span className="text-sm text-text-dim">Période :</span>
+        <div className="flex bg-surface-alt rounded-lg border border-border overflow-hidden">
+          {PERIODS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setMonths(p.value)}
+              className={`px-3 py-1.5 text-xs font-medium transition-all ${
+                months === p.value
+                  ? "bg-brand text-white"
+                  : "text-text-dim hover:bg-surface-hover"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">
-              En manque
-            </p>
-            <p className="text-2xl font-bold text-red-600">{nbManque}</p>
+            <p className="text-xs text-text-muted font-semibold uppercase">En manque</p>
+            <p className="text-2xl font-semibold text-red-600">{nbManque}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">
-              En surstock
-            </p>
-            <p className="text-2xl font-bold text-blue-600">{nbSurstock}</p>
+            <p className="text-xs text-text-muted font-semibold uppercase">En surstock</p>
+            <p className="text-2xl font-semibold text-blue-600">{nbSurstock}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">
-              Total références
-            </p>
-            <p className="text-2xl font-bold text-gray-700">
-              {besoins.length}
-            </p>
+            <p className="text-xs text-text-muted font-semibold uppercase">Total références</p>
+            <p className="text-2xl font-semibold text-foreground">{besoins.length}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="flex bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="flex bg-surface-alt rounded-lg border border-border overflow-hidden">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium transition ${
+              className={`px-4 py-2 text-sm font-medium transition-all ${
                 tab === t
-                  ? "bg-[#C41E3A] text-white"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-brand text-white"
+                  : "text-text-dim hover:bg-surface-hover"
               }`}
             >
               {t}
@@ -126,63 +147,51 @@ export default function BesoinsPage() {
           placeholder="Filtrer par code, marque, type..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          className="max-w-xs bg-surface-alt border-border text-foreground placeholder:text-text-muted"
         />
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-400">Chargement...</div>
+        <div className="text-center py-12 text-text-muted">Chargement...</div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-surface border border-border rounded-[14px] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <thead className="bg-surface-alt text-text-dim text-xs uppercase">
                 <tr>
                   <th className="px-4 py-3 text-left">Code moteur</th>
                   <th className="px-4 py-3 text-left">Type</th>
                   <th className="px-4 py-3 text-left">Marque</th>
                   <th className="px-4 py-3 text-left">Énergie</th>
-                  <th className="px-4 py-3 text-center">Vendus (3 mois)</th>
+                  <th className="px-4 py-3 text-center">Vendus ({months} mois)</th>
                   <th className="px-4 py-3 text-center">Stock dispo</th>
                   <th className="px-4 py-3 text-center">Delta</th>
                   <th className="px-4 py-3 text-right">Prix moy. achat</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filtered.map((b) => (
-                  <tr key={b.code_moteur} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-semibold">
-                      {b.code_moteur}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {b.type_moteur || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {b.marque || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {b.energie || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-center tabular-nums">
-                      {b.nb_vendus_3m}
-                    </td>
-                    <td className="px-4 py-3 text-center tabular-nums">
-                      {b.nb_stock_dispo}
-                    </td>
+                  <tr key={b.code_moteur} className="hover:bg-surface-hover transition-colors">
+                    <td className="px-4 py-3 font-semibold text-foreground">{b.code_moteur}</td>
+                    <td className="px-4 py-3 text-text-dim">{b.type_moteur || "—"}</td>
+                    <td className="px-4 py-3 text-text-dim">{b.marque || "—"}</td>
+                    <td className="px-4 py-3 text-text-dim">{b.energie || "—"}</td>
+                    <td className="px-4 py-3 text-center tabular-nums text-text-dim">{b.nb_vendus_3m}</td>
+                    <td className="px-4 py-3 text-center tabular-nums text-text-dim">{b.nb_stock_dispo}</td>
                     <td className="px-4 py-3 text-center">
                       <Badge
                         className={
                           b.delta < 0
-                            ? "bg-red-100 text-red-700 hover:bg-red-100"
+                            ? "bg-[rgba(220,38,38,0.06)] text-red-600 border border-[rgba(220,38,38,0.12)] hover:bg-[rgba(220,38,38,0.10)]"
                             : b.delta > 2
-                            ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-100"
+                            ? "bg-[rgba(59,130,246,0.06)] text-blue-600 border border-[rgba(59,130,246,0.12)] hover:bg-[rgba(59,130,246,0.10)]"
+                            : "bg-[rgba(107,114,128,0.06)] text-text-muted border border-[rgba(107,114,128,0.12)] hover:bg-[rgba(107,114,128,0.10)]"
                         }
                       >
                         {b.delta > 0 ? `+${b.delta}` : b.delta}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-gray-600">
+                    <td className="px-4 py-3 text-right tabular-nums text-text-dim">
                       {b.prix_moy_achat_3m != null
                         ? `${b.prix_moy_achat_3m.toFixed(0)} €`
                         : "—"}
@@ -193,7 +202,7 @@ export default function BesoinsPage() {
             </table>
           </div>
           {filtered.length === 0 && (
-            <p className="text-center py-10 text-gray-400">Aucun résultat</p>
+            <p className="text-center py-10 text-text-muted italic">Aucun résultat</p>
           )}
         </div>
       )}

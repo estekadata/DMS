@@ -100,15 +100,15 @@ export interface KpiMeta {
 }
 
 export const KPI_CATALOG: Record<string, KpiMeta> = {
-  mot_dispo:       { label: "Moteurs en stock",       color: "emerald", icon: "📦", fmt: "int" },
-  bv_dispo:        { label: "Boîtes en stock",        color: "emerald", icon: "⚙️", fmt: "int" },
-  mot_reserves:    { label: "Moteurs réservés",        color: "amber",   icon: "🔒", fmt: "int" },
-  bv_reserves:     { label: "Boîtes réservées",        color: "amber",   icon: "🔒", fmt: "int" },
-  ventes_mois:     { label: "Ventes du mois",          color: "red",     icon: "📈", fmt: "int" },
-  ca_mois:         { label: "CA du mois",              color: "red",     icon: "💰", fmt: "money" },
-  receptions_mois: { label: "Réceptions du mois",      color: "blue",    icon: "📥", fmt: "int" },
-  marge_mois:      { label: "Marge du mois",           color: "emerald", icon: "💵", fmt: "money" },
-  marge_pct:       { label: "Marge du mois (%)",       color: "emerald", icon: "📊", fmt: "pct" },
+  mot_dispo:       { label: "Moteurs en stock",       color: "default", icon: "", fmt: "int" },
+  bv_dispo:        { label: "Boîtes en stock",        color: "default", icon: "", fmt: "int" },
+  mot_reserves:    { label: "Moteurs réservés",        color: "default", icon: "", fmt: "int" },
+  bv_reserves:     { label: "Boîtes réservées",        color: "default", icon: "", fmt: "int" },
+  ventes_mois:     { label: "Ventes du mois",          color: "brand",   icon: "", fmt: "int" },
+  ca_mois:         { label: "CA du mois",              color: "brand",   icon: "", fmt: "money" },
+  receptions_mois: { label: "Réceptions du mois",      color: "default", icon: "", fmt: "int" },
+  marge_mois:      { label: "Marge du mois",           color: "default", icon: "", fmt: "money" },
+  marge_pct:       { label: "Marge du mois (%)",       color: "default", icon: "", fmt: "pct" },
 };
 
 export const DEFAULT_KPIS = [

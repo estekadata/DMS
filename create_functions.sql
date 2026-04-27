@@ -1,3 +1,51 @@
+-- 0a. get_ventes_par_mois (Ventes page: moteurs ou boites)
+CREATE OR REPLACE FUNCTION get_ventes_par_mois(p_piece text DEFAULT 'moteurs', p_months int DEFAULT 6)
+RETURNS TABLE(mois text, nb_vendus bigint) AS $$
+BEGIN
+  IF p_piece = 'moteurs' THEN
+    RETURN QUERY
+    SELECT to_char(date_validation, 'YYYY-MM') AS mois, COUNT(*)::bigint AS nb_vendus
+    FROM tbl_expeditions_moteurs
+    WHERE date_validation >= NOW() - (p_months || ' months')::INTERVAL
+    GROUP BY 1
+    ORDER BY 1;
+  ELSE
+    RETURN QUERY
+    SELECT to_char(date_validation, 'YYYY-MM') AS mois, COUNT(*)::bigint AS nb_vendus
+    FROM tbl_expeditions_boites
+    WHERE date_validation >= NOW() - (p_months || ' months')::INTERVAL
+    GROUP BY 1
+    ORDER BY 1;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 0b. get_top_types_vendus (Ventes page: top 15 par type moteur)
+CREATE OR REPLACE FUNCTION get_top_types_vendus(p_months int DEFAULT 6, p_limit int DEFAULT 15)
+RETURNS TABLE(type_moteur text, nb_vendus bigint) AS $$
+  SELECT
+    UPPER(SPLIT_PART(REGEXP_REPLACE(tm.nom_type_moteur, E'[\\s\\-]+', '|', 'g'), '|', 1)) AS type_moteur,
+    COUNT(*)::bigint AS nb_vendus
+  FROM tbl_expeditions_moteurs em
+  JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
+  JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
+  WHERE em.date_validation >= NOW() - (p_months || ' months')::INTERVAL
+    AND tm.nom_type_moteur IS NOT NULL AND TRIM(tm.nom_type_moteur) <> ''
+  GROUP BY 1
+  HAVING LENGTH(UPPER(SPLIT_PART(REGEXP_REPLACE(tm.nom_type_moteur, E'[\\s\\-]+', '|', 'g'), '|', 1))) >= 2
+  ORDER BY 2 DESC
+  LIMIT p_limit;
+$$ LANGUAGE sql;
+
+-- 0c. get_ventes_total_count (compte rapide)
+CREATE OR REPLACE FUNCTION get_ventes_total_count(p_piece text DEFAULT 'moteurs', p_months int DEFAULT 6)
+RETURNS bigint AS $$
+  SELECT CASE
+    WHEN p_piece = 'moteurs' THEN (SELECT COUNT(*) FROM tbl_expeditions_moteurs WHERE date_validation >= NOW() - (p_months || ' months')::INTERVAL)
+    ELSE (SELECT COUNT(*) FROM tbl_expeditions_boites WHERE date_validation >= NOW() - (p_months || ' months')::INTERVAL)
+  END;
+$$ LANGUAGE sql;
+
 -- 1. get_ventes_mois_count
 CREATE OR REPLACE FUNCTION get_ventes_mois_count()
 RETURNS JSON AS $$
@@ -59,7 +107,8 @@ $$ LANGUAGE sql;
 
 -- 6. get_besoins_moteurs
 -- Groupe par nom_type_moteur (ex: K9K 764, F9Q 674) depuis tbl_types_moteurs
-CREATE OR REPLACE FUNCTION get_besoins_moteurs(p_limit int DEFAULT 100)
+-- p_months: nombre de mois à analyser (défaut 3)
+CREATE OR REPLACE FUNCTION get_besoins_moteurs(p_limit int DEFAULT 100, p_months int DEFAULT 3)
 RETURNS TABLE(
   code_moteur text,
   type_moteur text,
@@ -74,13 +123,13 @@ WITH ventes AS (
     FROM tbl_expeditions_moteurs em
     JOIN tbl_moteurs m ON m.n_moteur = em.n_moteur
     JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur
-    WHERE em.date_validation >= NOW() - INTERVAL '3 months'
+    WHERE em.date_validation >= NOW() - (p_months || ' months')::INTERVAL
       AND tm.nom_type_moteur IS NOT NULL AND TRIM(tm.nom_type_moteur) <> ''
     GROUP BY tm.nom_type_moteur
 ),
 achats AS (
     SELECT tm.nom_type_moteur,
-           AVG(CASE WHEN r.date_achat >= NOW() - INTERVAL '3 months' THEN m.prix_achat_moteur END) AS prix_moy_3m
+           AVG(CASE WHEN r.date_achat >= NOW() - (p_months || ' months')::INTERVAL THEN m.prix_achat_moteur END) AS prix_moy_3m
     FROM tbl_moteurs m
     JOIN tbl_receptions r ON r.n_reception = m.num_reception
     JOIN tbl_types_moteurs tm ON tm.n_type_moteur = m.n_type_moteur

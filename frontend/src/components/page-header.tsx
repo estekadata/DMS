@@ -17,16 +17,16 @@ export function PageHeader({ title, description, icon, showBack = true }: PageHe
       {showBack && (
         <button
           onClick={() => router.push("/dashboard")}
-          className="text-sm text-gray-500 hover:text-gray-700 mb-3 flex items-center gap-1 transition-colors"
+          className="text-sm text-text-dim hover:text-foreground mb-3 flex items-center gap-1 transition-colors"
         >
           ← Retour à l&apos;accueil
         </button>
       )}
-      <h1 className="text-2xl font-bold text-gray-900">
+      <h1 className="font-heading text-2xl font-bold text-foreground">
         {icon && <span className="mr-2">{icon}</span>}
         {title}
       </h1>
-      {description && <p className="text-gray-500 mt-1">{description}</p>}
+      {description && <p className="text-text-dim mt-1 text-sm">{description}</p>}
     </div>
   );
 }

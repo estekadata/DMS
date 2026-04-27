@@ -7,7 +7,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   if (!session) redirect("/");
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       <SidebarWrapper userName={session.nom} userRole={session.role} />
       <main className="flex-1 ml-64 p-8">
         <div className="max-w-7xl mx-auto">

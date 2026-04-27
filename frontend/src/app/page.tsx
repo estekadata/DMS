@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -45,79 +45,79 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🚗</div>
-          <h1 className="text-3xl font-bold text-white">Multirex Auto DMS</h1>
-          <p className="text-gray-400 mt-2">Systeme de gestion intelligent</p>
-        </div>
-
-        <Card className="shadow-2xl border-0">
-          <CardContent className="p-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-1">Connexion</h2>
-            <p className="text-sm text-gray-500 mb-6">Entrez vos identifiants</p>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email ou identifiant</Label>
-                <Input
-                  id="email"
-                  type="text"
-                  placeholder="email@exemple.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1.5"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <Label htmlFor="password">Mot de passe</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Votre mot de passe"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-
-              {error && (
-                <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg border border-red-200">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-[#C41E3A] hover:bg-[#991B1E] text-white"
-                >
-                  {loading ? "Connexion..." : "Se connecter"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => router.push("/vhu")}
-                >
-                  Centres VHU
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        <div className="text-center mt-8">
-          <div className="inline-flex gap-4 bg-white/10 backdrop-blur px-6 py-3 rounded-full">
-            <span className="text-[#C41E3A] text-xs font-semibold">Analytics</span>
-            <span className="text-[#C41E3A] text-xs font-semibold">Temps reel</span>
-            <span className="text-[#C41E3A] text-xs font-semibold">Securise</span>
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/logo-multirex.jpg"
+              alt="Multirex Auto"
+              width={160}
+              height={80}
+              className="rounded-[10px]"
+              priority
+            />
           </div>
-          <p className="text-gray-500 text-xs mt-4">Multirex Auto 2025</p>
+          <h1 className="font-heading text-3xl font-bold text-foreground">Multirex Auto DMS</h1>
+          <p className="text-text-dim mt-2 text-sm">Systeme de gestion intelligent</p>
         </div>
+
+        <div className="bg-surface border border-border rounded-[14px] p-8 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+          <h2 className="text-xl font-bold text-foreground mb-1">Connexion</h2>
+          <p className="text-sm text-text-dim mb-6">Entrez vos identifiants</p>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <Label htmlFor="email" className="text-text-dim">Email ou identifiant</Label>
+              <Input
+                id="email"
+                type="text"
+                placeholder="email@exemple.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1.5 bg-surface-alt border-border text-foreground placeholder:text-text-muted"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label htmlFor="password" className="text-text-dim">Mot de passe</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Votre mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1.5 bg-surface-alt border-border text-foreground placeholder:text-text-muted"
+              />
+            </div>
+
+            {error && (
+              <div className="text-sm p-3 rounded-[10px] bg-[rgba(220,38,38,0.06)] text-red-600 border border-[rgba(220,38,38,0.12)]">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-brand hover:bg-brand/80 text-white rounded-[11px] h-10 font-semibold"
+              >
+                {loading ? "Connexion..." : "Se connecter"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-[11px] h-10"
+                onClick={() => router.push("/vhu")}
+              >
+                Centres VHU
+              </Button>
+            </div>
+          </form>
+        </div>
+
+        <p className="text-text-muted text-xs mt-8 text-center">Multirex Auto 2025</p>
       </div>
     </div>
   );

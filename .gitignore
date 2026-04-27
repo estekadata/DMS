@@ -24,6 +24,7 @@ uploads/
 
 # OS
 .DS_Store
+*:Zone.Identifier
 
 # Logs
 *.log

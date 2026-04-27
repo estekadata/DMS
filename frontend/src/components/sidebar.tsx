@@ -3,32 +3,37 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard, TrendingUp, Target, BarChart3, Euro,
+  PackageOpen, Search, Cog, ClipboardList, History,
+  Wrench, Building2, Users, LogOut, DatabaseZap,
+} from "lucide-react";
 
 const navSections = [
   {
     title: "Commercial",
     items: [
-      { label: "Ventes", href: "/ventes", icon: "📈" },
-      { label: "Besoins", href: "/besoins", icon: "🎯" },
-      { label: "Analyse", href: "/analyse", icon: "📊" },
-      { label: "Mise à jour prix", href: "/prix", icon: "💶" },
+      { label: "Ventes", href: "/ventes", icon: TrendingUp },
+      { label: "Besoins", href: "/besoins", icon: Target },
+      { label: "Analyse", href: "/analyse", icon: BarChart3 },
+      { label: "Mise à jour prix", href: "/prix", icon: Euro },
     ],
   },
   {
     title: "Gestion interne",
     items: [
-      { label: "Réceptions", href: "/receptions", icon: "📥" },
-      { label: "Moteurs", href: "/moteurs", icon: "🔍" },
-      { label: "Boîtes", href: "/boites", icon: "⚙️" },
-      { label: "Réservations", href: "/reservations", icon: "📋" },
-      { label: "Historique", href: "/historique", icon: "📜" },
+      { label: "Réceptions", href: "/receptions", icon: PackageOpen },
+      { label: "Moteurs", href: "/moteurs", icon: Search },
+      { label: "Boîtes", href: "/boites", icon: Cog },
+      { label: "Réservations", href: "/reservations", icon: ClipboardList },
+      { label: "Historique", href: "/historique", icon: History },
     ],
   },
   {
     title: "Outils",
     items: [
-      { label: "Pièces détachées", href: "/pieces", icon: "🔩" },
-      { label: "Centres VHU", href: "/vhu", icon: "🛠️" },
+      { label: "Pièces détachées", href: "/pieces", icon: Wrench },
+      { label: "Centres VHU", href: "/vhu", icon: Building2 },
     ],
   },
 ];
@@ -50,12 +55,12 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-gradient-to-b from-[#C41E3A] to-[#8B1A2B] text-white flex flex-col">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-surface border-r border-border flex flex-col">
       {/* Header */}
-      <div className="p-6 text-center border-b border-white/10">
-        <h1 className="text-lg font-bold tracking-wide">MULTIREX AUTO</h1>
+      <div className="p-6 text-center border-b border-border">
+        <h1 className="font-heading text-lg font-bold tracking-wide text-foreground">MULTIREX AUTO</h1>
         {userName && (
-          <p className="text-xs mt-1 opacity-80">{userName} ({roleLabel})</p>
+          <p className="text-xs mt-1 text-text-dim">{userName} ({roleLabel})</p>
         )}
       </div>
 
@@ -65,18 +70,18 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
         <Link
           href="/dashboard"
           className={cn(
-            "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
+            "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
             pathname === "/dashboard"
-              ? "bg-white/20 shadow-lg"
-              : "hover:bg-white/10"
+              ? "bg-brand-soft text-brand"
+              : "text-text-dim hover:bg-surface-hover hover:text-foreground"
           )}
         >
-          <span>🏠</span> Tableau de bord
+          <LayoutDashboard size={18} /> Tableau de bord
         </Link>
 
         {navSections.map((section) => (
           <div key={section.title}>
-            <p className="px-4 text-[11px] font-semibold uppercase tracking-wider opacity-60 mb-2">
+            <p className="px-4 text-[10px] font-bold uppercase tracking-[0.06em] text-text-muted mb-2">
               {section.title}
             </p>
             <div className="space-y-1">
@@ -85,13 +90,13 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
+                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
                     pathname === item.href
-                      ? "bg-white/20 shadow-lg"
-                      : "hover:bg-white/10"
+                      ? "bg-brand-soft text-brand"
+                      : "text-text-dim hover:bg-surface-hover hover:text-foreground"
                   )}
                 >
-                  <span>{item.icon}</span> {item.label}
+                  <item.icon size={18} /> {item.label}
                 </Link>
               ))}
             </div>
@@ -100,31 +105,42 @@ export function Sidebar({ userName, userRole }: SidebarProps) {
 
         {userRole === "super_admin" && (
           <div>
-            <p className="px-4 text-[11px] font-semibold uppercase tracking-wider opacity-60 mb-2">
+            <p className="px-4 text-[10px] font-bold uppercase tracking-[0.06em] text-text-muted mb-2">
               Administration
             </p>
             <Link
               href="/admin/utilisateurs"
               className={cn(
-                "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
+                "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
                 pathname === "/admin/utilisateurs"
-                  ? "bg-white/20 shadow-lg"
-                  : "hover:bg-white/10"
+                  ? "bg-brand-soft text-brand"
+                  : "text-text-dim hover:bg-surface-hover hover:text-foreground"
               )}
             >
-              <span>👥</span> Utilisateurs
+              <Users size={18} /> Utilisateurs
+            </Link>
+            <Link
+              href="/admin/import-donnees"
+              className={cn(
+                "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+                pathname === "/admin/import-donnees"
+                  ? "bg-brand-soft text-brand"
+                  : "text-text-dim hover:bg-surface-hover hover:text-foreground"
+              )}
+            >
+              <DatabaseZap size={18} /> Import données
             </Link>
           </div>
         )}
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-border">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/10 hover:bg-white/20 transition-all"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-text-dim bg-surface-alt hover:bg-surface-hover transition-all"
         >
-          🚪 Se déconnecter
+          <LogOut size={16} /> Se déconnecter
         </button>
       </div>
     </aside>

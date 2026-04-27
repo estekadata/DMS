@@ -58,43 +58,28 @@ export default function VhuPage() {
 
   return (
     <div>
-      <PageHeader title="Centres VHU" icon="🛠️" description="Interface de gestion des centres Véhicules Hors d'Usage" />
+      <PageHeader title="Centres VHU" description="Interface de gestion des centres Véhicules Hors d'Usage" />
 
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">Centres actifs</p>
-            <p className="text-2xl font-bold text-[#C41E3A]">{nbActifs}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">Total centres</p>
-            <p className="text-2xl font-bold text-gray-700">{centres.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-gray-500 font-semibold uppercase">Commandes actives</p>
-            <p className="text-2xl font-bold text-amber-600">—</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-text-dim font-semibold uppercase">Centres actifs</p><p className="text-2xl font-bold text-brand">{nbActifs}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-text-dim font-semibold uppercase">Total centres</p><p className="text-2xl font-bold text-foreground">{centres.length}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-text-dim font-semibold uppercase">Commandes actives</p><p className="text-2xl font-bold text-amber-600">—</p></CardContent></Card>
       </div>
 
       <Input
         placeholder="Rechercher par nom ou ville..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm mb-5"
+        className="max-w-sm mb-5 bg-surface-alt border-border text-foreground placeholder:text-text-muted"
       />
 
       <div className={`grid gap-6 ${selected ? "grid-cols-2" : "grid-cols-1"}`}>
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-surface border border-border rounded-[14px] overflow-hidden">
           {loading ? (
-            <p className="text-center py-10 text-gray-400">Chargement...</p>
+            <p className="text-center py-10 text-text-muted">Chargement...</p>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <thead className="bg-surface-alt text-text-dim text-xs uppercase">
                 <tr>
                   <th className="px-4 py-3 text-left">Nom</th>
                   <th className="px-4 py-3 text-left">Ville</th>
@@ -104,24 +89,24 @@ export default function VhuPage() {
                   <th className="px-4 py-3 text-center">Statut</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {centres.map((c) => (
                   <tr
                     key={c.n_centre}
                     onClick={() => openCentre(c)}
-                    className={`hover:bg-gray-50 cursor-pointer ${selected?.n_centre === c.n_centre ? "bg-red-50" : ""}`}
+                    className={`hover:bg-surface-hover cursor-pointer transition-colors ${selected?.n_centre === c.n_centre ? "bg-brand-soft" : ""}`}
                   >
-                    <td className="px-4 py-3 font-semibold">{c.nom || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.ville || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.departement || "—"}</td>
-                    <td className="px-4 py-3">{c.contact || "—"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{c.telephone || "—"}</td>
+                    <td className="px-4 py-3 font-semibold text-foreground">{c.nom || "—"}</td>
+                    <td className="px-4 py-3 text-text-dim">{c.ville || "—"}</td>
+                    <td className="px-4 py-3 text-text-dim">{c.departement || "—"}</td>
+                    <td className="px-4 py-3 text-text-dim">{c.contact || "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-text-dim">{c.telephone || "—"}</td>
                     <td className="px-4 py-3 text-center">
                       <Badge
                         className={
                           c.actif !== false
-                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                            : "bg-gray-100 text-gray-500 hover:bg-gray-100"
+                            ? "bg-[rgba(52,211,153,0.10)] text-emerald-600 border border-[rgba(52,211,153,0.20)] hover:bg-[rgba(52,211,153,0.15)]"
+                            : "bg-[rgba(90,100,120,0.10)] text-text-muted border border-[rgba(90,100,120,0.20)] hover:bg-[rgba(90,100,120,0.15)]"
                         }
                       >
                         {c.actif !== false ? "Actif" : "Inactif"}
@@ -133,25 +118,25 @@ export default function VhuPage() {
             </table>
           )}
           {!loading && centres.length === 0 && (
-            <p className="text-center py-10 text-gray-400">Aucun centre trouvé</p>
+            <p className="text-center py-10 text-text-muted italic">Aucun centre trouvé</p>
           )}
         </div>
 
         {selected && (
-          <div className="bg-white rounded-xl shadow-sm p-5">
+          <div className="bg-surface border border-border rounded-[14px] p-5">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="font-bold text-gray-900">{selected.nom}</h3>
-                <p className="text-sm text-gray-500">{selected.ville} — {selected.email || selected.telephone || ""}</p>
+                <h3 className="font-bold text-foreground">{selected.nom}</h3>
+                <p className="text-sm text-text-dim">{selected.ville} — {selected.email || selected.telephone || ""}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+              <button onClick={() => setSelected(null)} className="text-text-muted hover:text-foreground text-lg transition-colors">✕</button>
             </div>
-            <h4 className="text-sm font-semibold text-gray-600 mb-3">Dernières commandes</h4>
+            <h4 className="text-sm font-semibold text-text-dim mb-3">Dernières commandes</h4>
             {commandes.length === 0 ? (
-              <p className="text-sm text-gray-400">Aucune commande enregistrée</p>
+              <p className="text-sm text-text-muted italic">Aucune commande enregistrée</p>
             ) : (
               <table className="w-full text-sm">
-                <thead className="text-xs text-gray-500 uppercase bg-gray-50">
+                <thead className="text-xs text-text-dim uppercase bg-surface-alt">
                   <tr>
                     <th className="px-3 py-2 text-left">Date</th>
                     <th className="px-3 py-2 text-left">Code moteur</th>
@@ -159,14 +144,14 @@ export default function VhuPage() {
                     <th className="px-3 py-2 text-center">Statut</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-border">
                   {commandes.map((cmd) => (
-                    <tr key={cmd.n_commande} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 text-gray-600">{cmd.date_commande ? new Date(cmd.date_commande).toLocaleDateString("fr-FR") : "—"}</td>
-                      <td className="px-3 py-2 font-medium">{cmd.code_moteur || "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{cmd.prix ? `${Math.round(cmd.prix)} €` : "—"}</td>
+                    <tr key={cmd.n_commande} className="hover:bg-surface-hover transition-colors">
+                      <td className="px-3 py-2 text-text-dim">{cmd.date_commande ? new Date(cmd.date_commande).toLocaleDateString("fr-FR") : "—"}</td>
+                      <td className="px-3 py-2 font-medium text-foreground">{cmd.code_moteur || "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-text-dim">{cmd.prix ? `${Math.round(cmd.prix)} €` : "—"}</td>
                       <td className="px-3 py-2 text-center">
-                        <Badge className="bg-gray-100 text-gray-600 hover:bg-gray-100 text-xs">{cmd.statut || "—"}</Badge>
+                        <Badge className="bg-[rgba(90,100,120,0.10)] text-text-dim border border-[rgba(90,100,120,0.20)] hover:bg-[rgba(90,100,120,0.15)] text-xs">{cmd.statut || "—"}</Badge>
                       </td>
                     </tr>
                   ))}
