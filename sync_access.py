@@ -413,9 +413,14 @@ def read_access_table(accdb_path: Path, table: str) -> pd.DataFrame:
     proc = subprocess.run(
         ["mdb-export", "-D", "%Y-%m-%d %H:%M:%S", str(accdb_path), table],
         capture_output=True,
-        check=True,
     )
-    # mdb-export renvoie en UTF-8 (par défaut sur les .accdb modernes)
+    if proc.returncode != 0:
+        stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+        size = accdb_path.stat().st_size if accdb_path.exists() else "ABSENT"
+        raise RuntimeError(
+            f"mdb-export a échoué (table='{table}', taille_fichier={size} octets). "
+            f"stderr: {stderr or '(vide)'}"
+        )
     csv_text = proc.stdout.decode("utf-8", errors="replace")
     if not csv_text.strip():
         return pd.DataFrame()
@@ -438,6 +443,66 @@ def clean_dataframe(df: pd.DataFrame, mapping: Dict[str, str]) -> pd.DataFrame:
             )
         else:
             df[col] = df[col].where(pd.notna(df[col]), None)
+    return df
+
+
+def get_column_types(engine: Engine, target: str) -> Dict[str, str]:
+    """Renvoie {colonne: type_postgres} pour la table cible.
+    Utile pour caster correctement les booléens, dates, etc."""
+    types: Dict[str, str] = {}
+    with engine.connect() as conn:
+        rs = conn.execute(
+            text(
+                "SELECT column_name, data_type FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = :t"
+            ),
+            {"t": target},
+        )
+        for row in rs:
+            types[row[0]] = row[1]
+    return types
+
+
+INT_TYPES = {"integer", "bigint", "smallint"}
+
+
+def _to_bool(v: Any) -> Optional[bool]:
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    s = str(v).strip().lower()
+    if s in ("0", "1", "true", "false", "0.0", "1.0"):
+        return bool(int(float(s)))
+    if s in ("oui", "yes", "vrai", "t"):
+        return True
+    if s in ("non", "no", "faux", "f"):
+        return False
+    return None
+
+
+def _to_int(v: Any) -> Optional[int]:
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    try:
+        # Cas le plus fréquent : pandas a convert int → float à cause des NaN (ex: 123.0)
+        if isinstance(v, float):
+            return int(v)
+        if isinstance(v, int):
+            return v
+        return int(float(str(v).strip()))
+    except (ValueError, TypeError):
+        return None
+
+
+def coerce_dataframe_types(df: pd.DataFrame, col_types: Dict[str, str]) -> pd.DataFrame:
+    """Convertit les colonnes du DataFrame selon les types Postgres cibles.
+    - BOOLEAN : 0/1 -> True/False (mdb-export sort 0/1)
+    - INTEGER/BIGINT/SMALLINT : float "123.0" -> int 123 (pandas convertit int+NaN en float)"""
+    for col in df.columns:
+        pg_type = col_types.get(col)
+        if pg_type == "boolean":
+            df[col] = df[col].apply(_to_bool)
+        elif pg_type in INT_TYPES:
+            df[col] = df[col].apply(_to_int)
     return df
 
 
@@ -499,21 +564,20 @@ def upsert_dataframe(
     df: pd.DataFrame,
     pk: Tuple[str, ...],
     batch_size: int = 500,
-) -> Tuple[int, int]:
+) -> Tuple[int, int, List[str]]:
     """
     UPSERT par batch via INSERT ... ON CONFLICT (pk) DO UPDATE.
-    Retourne (rows_inserted_or_updated, errors).
+    Si un batch plante, on retombe ligne par ligne pour isoler l'erreur.
+    Retourne (rows_affected, errors, error_samples[:10]).
     """
     if df.empty:
-        return 0, 0
+        return 0, 0, []
 
     cols = list(df.columns)
     col_list = ", ".join(f'"{c}"' for c in cols)
     placeholders = ", ".join(f":{c}" for c in cols)
     pk_list = ", ".join(f'"{c}"' for c in pk)
-    update_set = ", ".join(
-        f'"{c}" = EXCLUDED."{c}"' for c in cols if c not in pk
-    )
+    update_set = ", ".join(f'"{c}" = EXCLUDED."{c}"' for c in cols if c not in pk)
 
     if update_set:
         sql = (
@@ -521,7 +585,6 @@ def upsert_dataframe(
             f"ON CONFLICT ({pk_list}) DO UPDATE SET {update_set}"
         )
     else:
-        # Cas table avec uniquement des colonnes PK
         sql = (
             f"INSERT INTO {target} ({col_list}) VALUES ({placeholders}) "
             f"ON CONFLICT ({pk_list}) DO NOTHING"
@@ -529,20 +592,38 @@ def upsert_dataframe(
 
     affected = 0
     errors = 0
-    with engine.begin() as conn:
-        for i in range(0, len(df), batch_size):
-            chunk = df.iloc[i : i + batch_size]
-            payload = [
-                {c: (None if pd.isna(v) else v) for c, v in row.items()}
-                for row in chunk.to_dict(orient="records")
-            ]
-            try:
+    error_samples: List[str] = []
+
+    def _row_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+        return {c: (None if pd.isna(v) else v) for c, v in row.items()}
+
+    for i in range(0, len(df), batch_size):
+        chunk = df.iloc[i : i + batch_size]
+        payload = [_row_payload(r) for r in chunk.to_dict(orient="records")]
+
+        # Tentative 1 : batch entier dans sa propre transaction
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(sql), payload)
-                affected += len(payload)
-            except Exception as e:
-                errors += len(payload)
-                log(f"  ⚠️  batch {i}-{i+batch_size} ERREUR: {e}")
-    return affected, errors
+            affected += len(payload)
+            continue
+        except Exception as e:
+            log(f"  ⚠️  batch {i}-{i+batch_size} a planté, fallback ligne-par-ligne ({type(e).__name__})")
+
+        # Tentative 2 : ligne par ligne, chaque ligne dans sa propre transaction
+        for j, row_payload in enumerate(payload):
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(sql), row_payload)
+                affected += 1
+            except Exception as row_err:
+                errors += 1
+                if len(error_samples) < 10:
+                    pk_vals = {k: row_payload.get(k) for k in pk}
+                    short_err = str(row_err).split("\n")[0][:200]
+                    error_samples.append(f"PK={pk_vals} → {short_err}")
+
+    return affected, errors, error_samples
 
 
 # ============================================
@@ -637,9 +718,18 @@ def process_table(
 
     # 5. Mode apply : UPSERT + log
     if mode == "apply" and not df.empty:
-        affected, errors = upsert_dataframe(engine, target, df, pk)
+        # Caster les types selon le schéma cible (BOOLEAN, etc.)
+        col_types = get_column_types(engine, target)
+        df = coerce_dataframe_types(df, col_types)
+
+        affected, errors, error_samples = upsert_dataframe(engine, target, df, pk)
         result["errors"] = errors
+        result["error_samples"] = error_samples
         result["applied"] = True
+        if error_samples:
+            log(f"  ⚠️  {errors} ligne(s) en erreur, exemples:")
+            for s in error_samples[:5]:
+                log(f"      {s}")
 
         # Update sync_metadata
         max_date_in_batch = None
@@ -650,26 +740,30 @@ def process_table(
                 if pd.notna(m):
                     if max_date_in_batch is None or m > max_date_in_batch:
                         max_date_in_batch = m
-        with engine.begin() as conn:
-            conn.execute(
-                text(
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                    INSERT INTO sync_metadata (table_name, last_sync_at, last_max_date, last_user)
+                    VALUES (:t, NOW(), :m, :u)
+                    ON CONFLICT (table_name) DO UPDATE
+                    SET last_sync_at = NOW(),
+                        last_max_date = COALESCE(EXCLUDED.last_max_date, sync_metadata.last_max_date),
+                        last_user = EXCLUDED.last_user
                     """
-                INSERT INTO sync_metadata (table_name, last_sync_at, last_max_date, last_user)
-                VALUES (:t, NOW(), :m, :u)
-                ON CONFLICT (table_name) DO UPDATE
-                SET last_sync_at = NOW(),
-                    last_max_date = COALESCE(EXCLUDED.last_max_date, sync_metadata.last_max_date),
-                    last_user = EXCLUDED.last_user
-                """
-                ),
-                {
-                    "t": target,
-                    "m": max_date_in_batch.to_pydatetime()
-                    if max_date_in_batch is not None
-                    else None,
-                    "u": user_email,
-                },
-            )
+                    ),
+                    {
+                        "t": target,
+                        "m": max_date_in_batch.to_pydatetime()
+                        if max_date_in_batch is not None
+                        else None,
+                        "u": user_email,
+                    },
+                )
+        except Exception as e:
+            # sync_metadata pas encore créée -> on ignore (pas bloquant)
+            log(f"  ⚠️  sync_metadata échec (table créée ?): {e}")
 
     # 6. Insert import_log row
     finished = datetime.utcnow()

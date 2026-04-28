@@ -1,11 +1,22 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+type LiveProgress = {
+  table_name: string;
+  started_at: string;
+  finished_at: string | null;
+  rows_read: number;
+  rows_inserted: number;
+  rows_updated: number;
+  rows_skipped: number;
+  source_file: string;
+};
 
 type TableStat = {
   table: string;
@@ -16,6 +27,7 @@ type TableStat = {
   updated: number;
   total: number;
   errors: number;
+  error_samples?: string[];
   last_sync: string | null;
   applied: boolean;
 };
@@ -42,12 +54,56 @@ export default function ImportDonneesPage() {
   const [applying, setApplying] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [applyResult, setApplyResult] = useState<SyncResult | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [liveProgress, setLiveProgress] = useState<LiveProgress[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 4 MB pour rester sous la limite Vercel (4.5 MB) si le worker n'est pas configuré
+  const CHUNK_SIZE = 4 * 1024 * 1024;
+  const TOTAL_TABLES = 14;
+
+  // Si NEXT_PUBLIC_WORKER_URL est défini (en prod sur Vercel) → on parle direct au worker.
+  // Sinon → on passe par les routes Next.js locales (qui spawn Python en local).
+  const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || "";
+  const apiUrl = (path: string) =>
+    WORKER_URL ? `${WORKER_URL}${path}` : `/api/import${path}`;
+
+  // Pendant l'apply, poll l'endpoint /status toutes les 2s pour voir l'avancement
+  useEffect(() => {
+    if (!applying) return;
+    const uploadId = preview?.upload_id;
+    let cancelled = false;
+
+    async function tick() {
+      try {
+        const url = uploadId
+          ? `/api/import/status?upload_id=${uploadId}`
+          : `/api/import/status`;
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!cancelled) setLiveProgress(data.rows || []);
+      } catch {
+        // silencieux
+      }
+    }
+
+    tick(); // 1er fetch immédiat
+    const interval = setInterval(tick, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [applying, preview?.upload_id]);
 
   const reset = () => {
     setFile(null);
     setPreview(null);
     setApplyResult(null);
+    setLiveProgress([]);
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -57,12 +113,54 @@ export default function ImportDonneesPage() {
     setApplyResult(null);
     setPreviewing(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const r = await fetch("/api/import/preview", { method: "POST", body: fd });
-      const data: SyncResult = await r.json();
+      // 1. Upload chunké du fichier (la limite Next/Turbopack est ~10 MB par requête)
+      const uploadId = crypto.randomUUID();
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      setUploadProgress({ current: 0, total: totalChunks });
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+        const cr = await fetch(apiUrl("/upload-chunk"), {
+          method: "POST",
+          headers: {
+            "X-Upload-Id": uploadId,
+            "X-Chunk-Index": String(i),
+            "X-Total-Chunks": String(totalChunks),
+            "X-Filename": file.name,
+            "Content-Type": "application/octet-stream",
+          },
+          body: chunk,
+        });
+        if (!cr.ok) {
+          const txt = await cr.text();
+          throw new Error(`Chunk ${i + 1}/${totalChunks} échoué : ${txt.slice(0, 200)}`);
+        }
+        setUploadProgress({ current: i + 1, total: totalChunks });
+      }
+
+      // 2. Lancer le preview sur le fichier reconstitué
+      const ext = file.name.toLowerCase().endsWith(".mdb") ? "mdb" : "accdb";
+      const r = await fetch(apiUrl("/preview"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ upload_id: uploadId, ext }),
+      });
+      // Lire la réponse en texte d'abord (au cas où ce ne serait pas du JSON)
+      const raw = await r.text();
+      let data: SyncResult & { error?: string; hint?: string };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          `Réponse non-JSON du serveur (HTTP ${r.status}). ` +
+            `Premiers caractères: ${raw.slice(0, 200)}`,
+        );
+      }
       if (!r.ok) {
-        throw new Error((data as unknown as { error?: string }).error || "Erreur preview");
+        const hint = data.hint ? `\n💡 ${data.hint}` : "";
+        throw new Error((data.error || "Erreur preview") + hint);
       }
       setPreview(data);
       if (!data.ok) {
@@ -71,9 +169,11 @@ export default function ImportDonneesPage() {
         toast.success("Preview généré — vérifie avant de confirmer");
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur preview");
+      const msg = e instanceof Error ? e.message : "Erreur preview";
+      toast.error(msg, { duration: 15000, style: { whiteSpace: "pre-wrap" } });
     } finally {
       setPreviewing(false);
+      setUploadProgress(null);
     }
   }
 
@@ -87,9 +187,10 @@ export default function ImportDonneesPage() {
     )
       return;
     setApplying(true);
+    setLiveProgress([]);
     try {
       const ext = file.name.toLowerCase().endsWith(".mdb") ? "mdb" : "accdb";
-      const r = await fetch("/api/import/apply", {
+      const r = await fetch(apiUrl("/apply"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ upload_id: preview.upload_id, ext }),
@@ -149,7 +250,11 @@ export default function ImportDonneesPage() {
           </div>
           <div className="mt-4 flex gap-2">
             <Button onClick={runPreview} disabled={!file || previewing}>
-              {previewing ? "Analyse en cours..." : "→ Lancer la validation"}
+              {previewing
+                ? uploadProgress
+                  ? `Upload ${uploadProgress.current}/${uploadProgress.total}...`
+                  : "Analyse en cours..."
+                : "→ Lancer la validation"}
             </Button>
             {(file || preview) && (
               <Button variant="outline" onClick={reset}>
@@ -157,6 +262,22 @@ export default function ImportDonneesPage() {
               </Button>
             )}
           </div>
+          {uploadProgress && (
+            <div className="mt-3">
+              <div className="h-2 w-full bg-surface-alt rounded overflow-hidden">
+                <div
+                  className="h-full bg-brand transition-all"
+                  style={{
+                    width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+              <p className="text-xs text-text-dim mt-1">
+                {Math.round((uploadProgress.current / uploadProgress.total) * 100)}% —
+                chunk {uploadProgress.current}/{uploadProgress.total}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -248,6 +369,75 @@ export default function ImportDonneesPage() {
         </Card>
       )}
 
+      {/* Live progress pendant l'apply */}
+      {applying && (
+        <Card className="mb-6 border-amber-300">
+          <CardContent className="p-6">
+            <h2 className="font-heading font-bold text-lg mb-3">
+              ⏳ Import en cours — {liveProgress.length}/{TOTAL_TABLES} tables traitées
+            </h2>
+            <div className="h-2 w-full bg-surface-alt rounded overflow-hidden mb-4">
+              <div
+                className="h-full bg-amber-500 transition-all"
+                style={{
+                  width: `${(liveProgress.length / TOTAL_TABLES) * 100}%`,
+                }}
+              />
+            </div>
+            <div className="overflow-x-auto rounded border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-alt text-text-dim">
+                  <tr>
+                    <th className="text-left p-2 font-semibold">Table</th>
+                    <th className="text-right p-2 font-semibold">Lignes lues</th>
+                    <th className="text-right p-2 font-semibold text-emerald-600">
+                      ⊕ Nouvelles
+                    </th>
+                    <th className="text-right p-2 font-semibold text-amber-600">
+                      ✎ Modifiées
+                    </th>
+                    <th className="text-right p-2 font-semibold text-red-600">
+                      ⚠ Erreurs
+                    </th>
+                    <th className="text-left p-2 font-semibold">Heure</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveProgress.map((r) => (
+                    <tr key={r.table_name} className="border-t border-border">
+                      <td className="p-2 font-mono text-xs">{r.table_name}</td>
+                      <td className="p-2 text-right">{r.rows_read}</td>
+                      <td className="p-2 text-right text-emerald-600 font-semibold">
+                        {r.rows_inserted || "—"}
+                      </td>
+                      <td className="p-2 text-right text-amber-600 font-semibold">
+                        {r.rows_updated || "—"}
+                      </td>
+                      <td className="p-2 text-right text-red-600">
+                        {r.rows_skipped || "—"}
+                      </td>
+                      <td className="p-2 text-xs text-text-dim">
+                        {new Date(r.started_at).toLocaleTimeString("fr-FR")}
+                      </td>
+                    </tr>
+                  ))}
+                  {liveProgress.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="p-4 text-center text-text-dim text-xs"
+                      >
+                        Initialisation... (la 1re table apparaîtra dans quelques secondes)
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Étape 3 : Résultat */}
       {applyResult && (
         <Card>
@@ -257,10 +447,42 @@ export default function ImportDonneesPage() {
               <Badge variant={applyResult.ok ? "default" : "destructive"} className="mb-3">
                 {applyResult.ok ? "✅ Succès" : "⚠️ Partiel"}
               </Badge>
-              <p className="text-text-dim">
+              <p className="text-text-dim mb-3">
                 {applyResult.totals?.new ?? 0} ajout(s) • {applyResult.totals?.updated ?? 0}{" "}
                 modif(s) • {applyResult.totals?.errors ?? 0} erreur(s)
               </p>
+              {applyResult.errors && applyResult.errors.length > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md mb-3">
+                  <p className="font-semibold text-red-700 mb-1">
+                    Erreurs globales ({applyResult.errors.length}) :
+                  </p>
+                  <ul className="list-disc ml-5 text-red-700 text-xs space-y-1">
+                    {applyResult.errors.map((e, i) => (
+                      <li key={i}>
+                        <strong>{e.stage}</strong> : {e.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {applyResult.tables &&
+                applyResult.tables
+                  .filter((t) => t.error_samples && t.error_samples.length > 0)
+                  .map((t) => (
+                    <div
+                      key={t.table}
+                      className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-2"
+                    >
+                      <p className="font-semibold text-amber-800 mb-1">
+                        ⚠️ {t.table} : {t.errors} ligne(s) en échec — exemples :
+                      </p>
+                      <ul className="list-disc ml-5 text-amber-900 text-xs space-y-1 font-mono">
+                        {t.error_samples!.slice(0, 5).map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
             </div>
           </CardContent>
         </Card>
