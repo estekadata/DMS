@@ -201,6 +201,19 @@ def main() -> int:
 
     # Truncate + insert stock
     print("\n💾 Mise à jour de la base...")
+    # Ajoute les colonnes manquantes (cas où la table a été créée sans elles)
+    with engine.connect() as conn:
+        for stmt in [
+            "ALTER TABLE tbl_pieces_detachees ADD COLUMN IF NOT EXISTS ref_constructeur TEXT DEFAULT ''",
+            "ALTER TABLE tbl_pieces_detachees ADD COLUMN IF NOT EXISTS observations TEXT DEFAULT ''",
+            "ALTER TABLE tbl_pieces_detachees ADD COLUMN IF NOT EXISTS modele TEXT DEFAULT ''",
+            "ALTER TABLE tbl_pieces_detachees ADD COLUMN IF NOT EXISTS marque TEXT DEFAULT ''",
+        ]:
+            try:
+                conn.execute(text(stmt))
+            except Exception as e:
+                print(f"  ⚠️  {stmt} → {str(e)[:120]}")
+        conn.commit()
     with engine.connect() as conn:
         conn.execute(text("TRUNCATE TABLE tbl_pieces_detachees RESTART IDENTITY CASCADE"))
         conn.commit()
