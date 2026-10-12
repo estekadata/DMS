@@ -21,10 +21,12 @@ import argparse
 import io
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
 import traceback
+import unicodedata
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -32,6 +34,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
+
+# pyodbc est utilisé sur Windows (driver Access natif), mdbtools sur Linux/Mac
+IS_WINDOWS = platform.system() == "Windows"
+try:
+    import pyodbc  # type: ignore
+    HAS_PYODBC = True
+except ImportError:
+    HAS_PYODBC = False
 
 # ============================================
 # CONFIGURATION
@@ -337,7 +347,10 @@ TABLES_CONFIG: List[Dict[str, Any]] = [
             "PDA": "pda",
             "Embrayage": "embrayage",
             "Autre": "autre",
-            "GélocMot": "geloc_mot",
+            # "GélocMot": "geloc_mot",  # géoloc pilotée par l'appli DMS : on ne
+            # réimporte plus l'emplacement depuis Access pour ne pas écraser les
+            # emplacements saisis/validés dans le logiciel (CDC 6.1). L'UPSERT
+            # n'inclut pas cette colonne, donc la valeur Supabase est préservée.
             "CompoInit": "compo_init",
             "PoidsMoteur": "poids_moteur",
             "DateModif2": "date_modif2",
@@ -376,6 +389,33 @@ TABLES_CONFIG: List[Dict[str, Any]] = [
             "PointageInventaire": "pointage_inventaire",
         },
     },
+    # ---------- Tables de liaison ventes (PK composite) ----------
+    {
+        "access_table": "tbl EXPEDITIONS moteurs",
+        "target": "tbl_expeditions_moteurs",
+        "strategy": "full_reload",
+        "pk": ("n_expedition", "n_moteur"),
+        "date_pivot": None,
+        "mapping": {
+            "N_Expédition": "n_expedition",
+            "N_moteur": "n_moteur",
+            "PrixVenteMoteur": "prix_vente_moteur",
+            "DateValidation": "date_validation",
+        },
+    },
+    {
+        "access_table": "tbl EXPEDITIONS boîtes",
+        "target": "tbl_expeditions_boites",
+        "strategy": "full_reload",
+        "pk": ("n_expedition", "n_bv"),
+        "date_pivot": None,
+        "mapping": {
+            "N_Expédition": "n_expedition",
+            "N_BV": "n_bv",
+            "PrixVenteBV": "prix_vente_bv",
+            "DateValidation": "date_validation",
+        },
+    },
 ]
 
 # Marge de sécurité pour incremental_date_metier : on rejoue les N derniers jours
@@ -391,16 +431,72 @@ def log(msg: str) -> None:
     print(f"[sync] {msg}", file=sys.stderr, flush=True)
 
 
-def check_mdbtools() -> None:
-    if shutil.which("mdb-export") is None or shutil.which("mdb-tables") is None:
+def _pyodbc_connection(accdb_path: Path):
+    """Ouvre une connexion ODBC vers le .accdb via le driver Microsoft Access."""
+    if not HAS_PYODBC:
         raise RuntimeError(
-            "mdbtools introuvable. Installe-le : sudo apt install mdbtools"
+            "Le module pyodbc n'est pas installé. Lance : pip install pyodbc"
         )
+    # Sélectionne le bon driver Access ODBC installé sur la machine
+    driver = None
+    for d in pyodbc.drivers():
+        if "Microsoft Access Driver" in d and ("accdb" in d or "*.accdb" in d):
+            driver = d
+            break
+    if not driver:
+        # Liste les drivers dispo pour aider l'utilisateur
+        available = "\n  - ".join(pyodbc.drivers()) or "(aucun)"
+        raise RuntimeError(
+            "Driver Microsoft Access introuvable.\n"
+            "Télécharge-le gratuitement (Microsoft Access Database Engine 2016 Redistributable) :\n"
+            "  https://www.microsoft.com/en-us/download/details.aspx?id=54920\n"
+            "Choisis la version 64-bit si Python est en 64-bit.\n\n"
+            f"Drivers ODBC actuellement détectés :\n  - {available}"
+        )
+    conn_str = f"DRIVER={{{driver}}};DBQ={accdb_path};"
+    return pyodbc.connect(conn_str)
+
+
+def find_mdbtool(name: str) -> str:
+    """(Linux/Mac uniquement) Cherche mdbtools dans le PATH système."""
+    found = shutil.which(name)
+    if found:
+        return found
+    raise RuntimeError(
+        f"{name} introuvable. Sur Linux/Mac : apt install mdbtools."
+    )
+
+
+def check_mdbtools() -> None:
+    """Vérifie qu'on peut lire un .accdb (pyodbc sur Windows, mdbtools sinon)."""
+    if IS_WINDOWS or HAS_PYODBC:
+        if not HAS_PYODBC:
+            raise RuntimeError(
+                "pyodbc n'est pas installé. Lance : pip install pyodbc"
+            )
+        # On ne peut pas vérifier le driver sans avoir un fichier, juste pyodbc
+        return
+    find_mdbtool("mdb-export")
+    find_mdbtool("mdb-tables")
 
 
 def list_access_tables(accdb_path: Path) -> List[str]:
+    """Liste les tables d'un .accdb."""
+    if IS_WINDOWS or HAS_PYODBC:
+        conn = _pyodbc_connection(accdb_path)
+        try:
+            cursor = conn.cursor()
+            tables = []
+            for row in cursor.tables(tableType="TABLE"):
+                # On ignore les tables système Access (commencent par 'MSys')
+                if not row.table_name.startswith("MSys"):
+                    tables.append(row.table_name)
+            return tables
+        finally:
+            conn.close()
+    # Fallback Linux/Mac
     out = subprocess.run(
-        ["mdb-tables", "-1", str(accdb_path)],
+        [find_mdbtool("mdb-tables"), "-1", str(accdb_path)],
         capture_output=True,
         text=True,
         check=True,
@@ -409,9 +505,19 @@ def list_access_tables(accdb_path: Path) -> List[str]:
 
 
 def read_access_table(accdb_path: Path, table: str) -> pd.DataFrame:
-    """Exporte une table Access en CSV via mdb-export, retourne un DataFrame."""
+    """Charge une table Access dans un DataFrame.
+    Utilise pyodbc sur Windows (driver Access natif) sinon mdb-export."""
+    if IS_WINDOWS or HAS_PYODBC:
+        conn = _pyodbc_connection(accdb_path)
+        try:
+            # Echappe le nom de table avec [] pour gérer les espaces et caractères spéciaux
+            df = pd.read_sql(f'SELECT * FROM [{table}]', conn)
+            return df
+        finally:
+            conn.close()
+    # Fallback Linux/Mac
     proc = subprocess.run(
-        ["mdb-export", "-D", "%Y-%m-%d %H:%M:%S", str(accdb_path), table],
+        [find_mdbtool("mdb-export"), "-D", "%Y-%m-%d %H:%M:%S", str(accdb_path), table],
         capture_output=True,
     )
     if proc.returncode != 0:
@@ -428,10 +534,23 @@ def read_access_table(accdb_path: Path, table: str) -> pd.DataFrame:
 
 
 def clean_dataframe(df: pd.DataFrame, mapping: Dict[str, str]) -> pd.DataFrame:
-    """Garde uniquement les colonnes mappées, renomme, normalise NaN -> None."""
-    existing = [c for c in mapping.keys() if c in df.columns]
+    """Garde uniquement les colonnes mappées, renomme, normalise NaN -> None.
+    Normalise les noms de colonnes en NFC (sinon les é, è, etc. de pyodbc sur Windows
+    arrivent en NFD et ne matchent pas les clés du mapping qui sont en NFC)."""
+    # Normalisation Unicode NFC sur les colonnes du DataFrame
+    df = df.copy()
+    df.columns = [
+        unicodedata.normalize("NFC", c) if isinstance(c, str) else c
+        for c in df.columns
+    ]
+    # Et aussi sur les clés du mapping pour être 100% sûr
+    norm_mapping = {
+        unicodedata.normalize("NFC", k): v for k, v in mapping.items()
+    }
+
+    existing = [c for c in norm_mapping.keys() if c in df.columns]
     df = df[existing].copy()
-    df.rename(columns={k: mapping[k] for k in existing}, inplace=True)
+    df.rename(columns={k: norm_mapping[k] for k in existing}, inplace=True)
 
     # Normalise les NaN/strings vides en None
     for col in df.columns:
@@ -469,12 +588,12 @@ INT_TYPES = {"integer", "bigint", "smallint"}
 def _to_bool(v: Any) -> Optional[bool]:
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return None
+    if isinstance(v, bool):
+        return v
     s = str(v).strip().lower()
-    if s in ("0", "1", "true", "false", "0.0", "1.0"):
-        return bool(int(float(s)))
-    if s in ("oui", "yes", "vrai", "t"):
+    if s in ("1", "1.0", "true", "vrai", "oui", "yes", "t", "y"):
         return True
-    if s in ("non", "no", "faux", "f"):
+    if s in ("0", "0.0", "false", "faux", "non", "no", "f", "n", ""):
         return False
     return None
 
@@ -608,7 +727,11 @@ def upsert_dataframe(
             affected += len(payload)
             continue
         except Exception as e:
-            log(f"  ⚠️  batch {i}-{i+batch_size} a planté, fallback ligne-par-ligne ({type(e).__name__})")
+            err_msg = str(e).split("\n")[0][:300]
+            log(
+                f"  ⚠️  batch {i}-{i+batch_size}: {type(e).__name__}: {err_msg}"
+            )
+            log(f"     fallback ligne-par-ligne...")
 
         # Tentative 2 : ligne par ligne, chaque ligne dans sa propre transaction
         for j, row_payload in enumerate(payload):
@@ -722,6 +845,14 @@ def process_table(
         col_types = get_column_types(engine, target)
         df = coerce_dataframe_types(df, col_types)
 
+        # Filtrer : ne garder que les colonnes qui existent dans Supabase
+        # (évite les erreurs si Access a une colonne qui n'a pas été créée côté Supabase)
+        target_cols = set(col_types.keys())
+        extra_cols = [c for c in df.columns if c not in target_cols]
+        if extra_cols:
+            log(f"  Colonnes ignorées (absentes côté Supabase): {extra_cols}")
+            df = df[[c for c in df.columns if c in target_cols]]
+
         affected, errors, error_samples = upsert_dataframe(engine, target, df, pk)
         result["errors"] = errors
         result["error_samples"] = error_samples
@@ -804,6 +935,15 @@ def process_table(
 
 
 def main() -> int:
+    # Windows: la console est souvent en cp1252 et ne peut pas encoder certains
+    # caractères (ex: "→" dans les messages d'erreur), ce qui faisait planter
+    # l'impression du résumé JSON en fin de run (faux échec). On force l'UTF-8.
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--accdb", required=True, help="Chemin vers le fichier .accdb")
     ap.add_argument(
